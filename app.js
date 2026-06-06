@@ -24,6 +24,22 @@ const logIcons = { CREATE: '➕', UPDATE: '✏️', DELETE: '🗑️', SETTINGS:
 
 const $ = id => document.getElementById(id);
 
+function on(id, event, handler) {
+  const el = $(id);
+  if (el) el.addEventListener(event, handler);
+  else console.warn('[No Mercy] Elemen tidak ditemukan:', id);
+}
+
+function setVal(id, value) {
+  const el = $(id);
+  if (el) el.value = value;
+}
+
+function setText(id, text) {
+  const el = $(id);
+  if (el) el.textContent = text;
+}
+
 function isFirebaseConfigured() {
   return typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey && firebaseConfig.apiKey !== 'ISI_API_KEY_KAMU';
 }
@@ -486,128 +502,156 @@ function renderAll() {
   if (active === 'log') renderActivityLog();
 }
 
-// ─── Tabs ──────────────────────────────────────────────────────
+// ─── Tabs & Events ─────────────────────────────────────────────
 
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
-    $(`panel-${btn.dataset.tab}`).classList.remove('hidden');
-    if (btn.dataset.tab === 'laporan') renderWeeklyReport();
-    if (btn.dataset.tab === 'leaderboard') renderLeaderboard();
-    if (btn.dataset.tab === 'log') renderActivityLog();
+function bindEvents() {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
+      const panel = $(`panel-${btn.dataset.tab}`);
+      if (panel) panel.classList.remove('hidden');
+      if (btn.dataset.tab === 'laporan') renderWeeklyReport();
+      if (btn.dataset.tab === 'leaderboard') renderLeaderboard();
+      if (btn.dataset.tab === 'log') renderActivityLog();
+    });
   });
-});
 
-// ─── Form: tambah setoran ──────────────────────────────────────
+  const tanggal = $('tanggal');
+  if (tanggal) tanggal.valueAsDate = new Date();
 
-$('tanggal').valueAsDate = new Date();
-document.querySelectorAll('.jumlah-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.jumlah-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    $('jumlah').value = btn.dataset.value;
+  document.querySelectorAll('.jumlah-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.jumlah-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      setVal('jumlah', btn.dataset.value);
+    });
   });
-});
 
-$('setoran-form').addEventListener('submit', async e => {
-  e.preventDefault();
-  if (!$('jumlah').value) { showToast('⚠ Pilih jumlah dulu!'); return; }
-  const entry = {
-    tanggal: $('tanggal').value,
-    nama: $('nama').value.trim(),
-    barang: $('barang').value,
-    jumlah: Number($('jumlah').value),
-    disetor: $('disetor').value,
-    keterangan: $('keterangan').value,
-  };
-  try {
-    await addSetoran(entry);
-    $('setoran-form').reset();
-    $('tanggal').valueAsDate = new Date();
-    $('jumlah').value = '';
-    document.querySelectorAll('.jumlah-btn').forEach(b => b.classList.remove('active'));
-    showToast('✓ Setoran dicatat!');
-  } catch (err) { console.error(err); showToast('⚠ Gagal menyimpan'); }
-});
+  on('setoran-form', 'submit', async e => {
+    e.preventDefault();
+    if (!$('jumlah')?.value) { showToast('⚠ Pilih jumlah dulu!'); return; }
+    const entry = {
+      tanggal: $('tanggal').value,
+      nama: $('nama').value.trim(),
+      barang: $('barang').value,
+      jumlah: Number($('jumlah').value),
+      disetor: $('disetor').value,
+      keterangan: $('keterangan').value,
+    };
+    try {
+      await addSetoran(entry);
+      $('setoran-form').reset();
+      if ($('tanggal')) $('tanggal').valueAsDate = new Date();
+      setVal('jumlah', '');
+      document.querySelectorAll('.jumlah-btn').forEach(b => b.classList.remove('active'));
+      showToast('✓ Setoran dicatat!');
+    } catch (err) { console.error(err); showToast('⚠ Gagal menyimpan'); }
+  });
 
-// ─── Edit & Delete ─────────────────────────────────────────────
+  on('setoran-list', 'click', e => {
+    const edit = e.target.closest('.edit-btn');
+    const del = e.target.closest('.delete-btn');
+    if (edit) openEditModal(edit.dataset.id);
+    if (del) { deleteId = del.dataset.id; $('delete-modal')?.classList.remove('hidden'); }
+  });
 
-function openEditModal(id) {
-  const s = allData.find(x => x.id === id);
-  if (!s) return;
-  $('edit-id').value = id;
-  $('edit-tanggal').value = s.tanggal;
-  $('edit-nama').value = s.nama;
-  $('edit-barang').value = s.barang;
-  $('edit-jumlah').value = s.jumlah;
-  $('edit-disetor').value = s.disetor;
-  $('edit-keterangan').value = s.keterangan;
-  $('edit-modal').classList.remove('hidden');
-}
+  on('edit-form', 'submit', async e => {
+    e.preventDefault();
+    const id = $('edit-id').value;
+    const entry = {
+      tanggal: $('edit-tanggal').value,
+      nama: $('edit-nama').value.trim(),
+      barang: $('edit-barang').value,
+      jumlah: Number($('edit-jumlah').value),
+      disetor: $('edit-disetor').value,
+      keterangan: $('edit-keterangan').value,
+    };
+    try {
+      await updateSetoran(id, entry);
+      $('edit-modal')?.classList.add('hidden');
+      showToast('✓ Setoran diupdate!');
+    } catch (err) { console.error(err); showToast('⚠ Gagal update'); }
+  });
 
-$('setoran-list').addEventListener('click', e => {
-  const edit = e.target.closest('.edit-btn');
-  const del = e.target.closest('.delete-btn');
-  if (edit) openEditModal(edit.dataset.id);
-  if (del) { deleteId = del.dataset.id; $('delete-modal').classList.remove('hidden'); }
-});
+  on('edit-cancel', 'click', () => $('edit-modal')?.classList.add('hidden'));
+  $('edit-modal')?.querySelector('[data-close="edit-modal"]')?.addEventListener('click', () => $('edit-modal')?.classList.add('hidden'));
 
-$('edit-form').addEventListener('submit', async e => {
-  e.preventDefault();
-  const id = $('edit-id').value;
-  const entry = {
-    tanggal: $('edit-tanggal').value,
-    nama: $('edit-nama').value.trim(),
-    barang: $('edit-barang').value,
-    jumlah: Number($('edit-jumlah').value),
-    disetor: $('edit-disetor').value,
-    keterangan: $('edit-keterangan').value,
-  };
-  try {
-    await updateSetoran(id, entry);
-    $('edit-modal').classList.add('hidden');
-    showToast('✓ Setoran diupdate!');
-  } catch (err) { console.error(err); showToast('⚠ Gagal update'); }
-});
+  on('delete-cancel', 'click', () => { $('delete-modal')?.classList.add('hidden'); deleteId = null; });
+  $('delete-modal')?.querySelector('[data-close="delete-modal"]')?.addEventListener('click', () => { $('delete-modal')?.classList.add('hidden'); deleteId = null; });
 
-$('edit-cancel').addEventListener('click', () => $('edit-modal').classList.add('hidden'));
-$('edit-modal').querySelector('[data-close="edit-modal"]').addEventListener('click', () => $('edit-modal').classList.add('hidden'));
-
-$('delete-cancel').addEventListener('click', () => { $('delete-modal').classList.add('hidden'); deleteId = null; });
-$('delete-modal').querySelector('[data-close="delete-modal"]').addEventListener('click', () => { $('delete-modal').classList.add('hidden'); deleteId = null; });
-$('delete-confirm').addEventListener('click', async () => {
-  if (deleteId) {
-    try { await removeSetoran(deleteId); showToast('Setoran dihapus'); }
-    catch (err) { showToast('⚠ Gagal hapus'); }
-  }
-  $('delete-modal').classList.add('hidden');
-  deleteId = null;
-});
-
-// ─── Settings ──────────────────────────────────────────────────
-
-$('settings-form').addEventListener('submit', async e => {
-  e.preventDefault();
-  const targetMingguan = Number($('setting-target').value) || 2000;
-  const discordWebhook = $('setting-discord').value.trim();
-  try {
-    if (useFirebase) {
-      await db.collection('settings').doc(SETTINGS_DOC).set({ targetMingguan, discordWebhook }, { merge: true });
-      await logActivity('SETTINGS', `Update pengaturan: target ${formatNumber(targetMingguan)}`);
-    } else {
-      settings = { targetMingguan, discordWebhook };
+  on('delete-confirm', 'click', async () => {
+    if (deleteId) {
+      try { await removeSetoran(deleteId); showToast('Setoran dihapus'); }
+      catch (err) { showToast('⚠ Gagal hapus'); }
     }
-    showToast('✓ Pengaturan disimpan!');
-  } catch (err) { console.error(err); showToast('⚠ Gagal simpan pengaturan'); }
-});
+    $('delete-modal')?.classList.add('hidden');
+    deleteId = null;
+  });
 
-// ─── Export & filters ──────────────────────────────────────────
+  on('settings-form', 'submit', async e => {
+    e.preventDefault();
+    const targetMingguan = Number($('setting-target')?.value) || 2000;
+    const discordWebhook = $('setting-discord')?.value.trim() || '';
+    try {
+      if (useFirebase) {
+        await db.collection('settings').doc(SETTINGS_DOC).set({ targetMingguan, discordWebhook }, { merge: true });
+        await logActivity('SETTINGS', `Update pengaturan: target ${formatNumber(targetMingguan)}`);
+      } else {
+        settings = { targetMingguan, discordWebhook };
+      }
+      showToast('✓ Pengaturan disimpan!');
+    } catch (err) { console.error(err); showToast('⚠ Gagal simpan pengaturan'); }
+  });
 
-$('search').addEventListener('input', renderList);
-$('filter-keterangan').addEventListener('change', renderList);
-$('leaderboard-period').addEventListener('change', renderLeaderboard);
+  on('search', 'input', renderList);
+  on('filter-keterangan', 'change', renderList);
+  on('leaderboard-period', 'change', renderLeaderboard);
+
+  on('export-btn', 'click', () => {
+    const data = getData();
+    if (!data.length) { showToast('⚠ Tidak ada data'); return; }
+    downloadCsv(
+      ['Tanggal', 'Nama', 'Barang', 'Jumlah', 'Disetor Ke', 'Keterangan'],
+      data.map(s => [s.tanggal, s.nama, s.barang, s.jumlah, s.disetor, s.keterangan]),
+      `setoran-no-mercy-${new Date().toISOString().slice(0, 10)}.csv`
+    );
+    showToast('✓ CSV didownload');
+  });
+
+  on('week-prev', 'click', () => {
+    selectedWeek = new Date(selectedWeek);
+    selectedWeek.setDate(selectedWeek.getDate() - 7);
+    renderWeeklyReport();
+  });
+  on('week-next', 'click', () => {
+    selectedWeek = new Date(selectedWeek);
+    selectedWeek.setDate(selectedWeek.getDate() + 7);
+    renderWeeklyReport();
+  });
+  on('week-current', 'click', () => { selectedWeek = new Date(); renderWeeklyReport(); });
+
+  on('export-week-btn', 'click', () => {
+    const weekData = filterByWeek(getData(), selectedWeek);
+    if (!weekData.length) { showToast('⚠ Kosong'); return; }
+    const { start } = getWeekBounds(selectedWeek);
+    downloadCsv(
+      ['Tanggal', 'Nama', 'Barang', 'Jumlah', 'Disetor Ke', 'Keterangan'],
+      weekData.sort((a, b) => parseDate(a.tanggal) - parseDate(b.tanggal)).map(s => [s.tanggal, s.nama, s.barang, s.jumlah, s.disetor, s.keterangan]),
+      `laporan-${start.toISOString().slice(0, 10)}.csv`
+    );
+  });
+
+  on('gate-login-form', 'submit', async e => {
+    e.preventDefault();
+    await handleLogin($('gate-email').value.trim(), $('gate-password').value, $('gate-login-error'));
+  });
+
+  on('btn-logout', 'click', async () => {
+    try { await auth.signOut(); showToast('Logout berhasil'); } catch { showToast('⚠ Gagal logout'); }
+  });
+}
 
 function downloadCsv(headers, rows, filename) {
   const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
@@ -618,65 +662,33 @@ function downloadCsv(headers, rows, filename) {
   a.click();
 }
 
-$('export-btn').addEventListener('click', () => {
-  const data = getData();
-  if (!data.length) { showToast('⚠ Tidak ada data'); return; }
-  downloadCsv(
-    ['Tanggal', 'Nama', 'Barang', 'Jumlah', 'Disetor Ke', 'Keterangan'],
-    data.map(s => [s.tanggal, s.nama, s.barang, s.jumlah, s.disetor, s.keterangan]),
-    `setoran-no-mercy-${new Date().toISOString().slice(0, 10)}.csv`
-  );
-  showToast('✓ CSV didownload');
-});
-
-$('week-prev').addEventListener('click', () => {
-  selectedWeek = new Date(selectedWeek);
-  selectedWeek.setDate(selectedWeek.getDate() - 7);
-  renderWeeklyReport();
-});
-$('week-next').addEventListener('click', () => {
-  selectedWeek = new Date(selectedWeek);
-  selectedWeek.setDate(selectedWeek.getDate() + 7);
-  renderWeeklyReport();
-});
-$('week-current').addEventListener('click', () => { selectedWeek = new Date(); renderWeeklyReport(); });
-
-$('export-week-btn').addEventListener('click', () => {
-  const weekData = filterByWeek(getData(), selectedWeek);
-  if (!weekData.length) { showToast('⚠ Kosong'); return; }
-  const { start } = getWeekBounds(selectedWeek);
-  downloadCsv(
-    ['Tanggal', 'Nama', 'Barang', 'Jumlah', 'Disetor Ke', 'Keterangan'],
-    weekData.sort((a, b) => parseDate(a.tanggal) - parseDate(b.tanggal)).map(s => [s.tanggal, s.nama, s.barang, s.jumlah, s.disetor, s.keterangan]),
-    `laporan-${start.toISOString().slice(0, 10)}.csv`
-  );
-});
-
-// ─── Login / Logout ────────────────────────────────────────────
-
 async function handleLogin(email, password, errorEl) {
-  errorEl.classList.add('hidden');
+  if (errorEl) errorEl.classList.add('hidden');
   try {
     await auth.signInWithEmailAndPassword(email, password);
     showToast('✓ Login berhasil!');
     return true;
   } catch {
-    errorEl.textContent = 'Email atau password salah';
-    errorEl.classList.remove('hidden');
+    if (errorEl) {
+      errorEl.textContent = 'Email atau password salah';
+      errorEl.classList.remove('hidden');
+    }
     return false;
   }
 }
 
-$('gate-login-form').addEventListener('submit', async e => {
-  e.preventDefault();
-  await handleLogin($('gate-email').value.trim(), $('gate-password').value, $('gate-login-error'));
-});
-
-$('btn-logout').addEventListener('click', async () => {
-  try { await auth.signOut(); showToast('Logout berhasil'); } catch { showToast('⚠ Gagal logout'); }
-});
-
-// ─── Init ──────────────────────────────────────────────────────
+function openEditModal(id) {
+  const s = allData.find(x => x.id === id);
+  if (!s) return;
+  setVal('edit-id', id);
+  setVal('edit-tanggal', s.tanggal);
+  setVal('edit-nama', s.nama);
+  setVal('edit-barang', s.barang);
+  setVal('edit-jumlah', s.jumlah);
+  setVal('edit-disetor', s.disetor);
+  setVal('edit-keterangan', s.keterangan);
+  $('edit-modal')?.classList.remove('hidden');
+}
 
 function initLocalDev() {
   useFirebase = false;
@@ -705,4 +717,5 @@ function initFirebase() {
   hideLoading();
 }
 
+bindEvents();
 initFirebase();
