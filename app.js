@@ -54,6 +54,14 @@ function showToast(msg) {
 
 function hideLoading() { $('loading').classList.add('hidden'); }
 
+function setListLoading(on) {
+  const list = $('setoran-list');
+  if (!list) return;
+  if (on && !list.querySelector('.list-loading')) {
+    list.innerHTML = '<p class="list-loading text-center text-mercy-muted text-sm py-8">Memuat data setoran...</p>';
+  }
+}
+
 function parseDate(s) { return new Date(s + 'T00:00:00'); }
 
 function getWeekBounds(date = new Date()) {
@@ -109,21 +117,38 @@ function unsubscribeAll() {
 function subscribeData() {
   if (!db || !isLoggedIn) return;
   unsubscribeAll();
+  setListLoading(true);
+
+  const applySetoran = snap => {
+    allData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderAll();
+    setListLoading(false);
+  };
+
+  // Load cepat pakai get(), lalu realtime pakai onSnapshot
+  db.collection('setoran').orderBy('tanggal', 'desc').get()
+    .then(applySetoran)
+    .catch(err => {
+      console.error(err);
+      setListLoading(false);
+      showToast('⚠ Gagal load setoran — cek Firestore Rules');
+    });
 
   unsubSetoran = db.collection('setoran').orderBy('tanggal', 'desc').onSnapshot(
-    snap => {
-      allData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderAll();
-      hideLoading();
-    },
-    err => { console.error(err); hideLoading(); showToast('⚠ Gagal load setoran'); }
+    applySetoran,
+    err => {
+      console.error(err);
+      setListLoading(false);
+      showToast('⚠ Gagal sync setoran — cek Firestore Rules');
+    }
   );
 
   unsubLog = db.collection('activity_log').orderBy('createdAt', 'desc').limit(80).onSnapshot(
     snap => {
       activityLogs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderActivityLog();
-    }
+    },
+    err => console.warn('Log:', err)
   );
 
   unsubSettings = db.collection('settings').doc(SETTINGS_DOC).onSnapshot(
@@ -135,11 +160,13 @@ function subscribeData() {
         $('target-display').textContent = formatNumber(settings.targetMingguan);
       }
       renderTargetProgress();
-    }
+    },
+    err => console.warn('Settings:', err)
   );
 }
 
 function onAuthChange(user) {
+  hideLoading();
   isLoggedIn = !!user;
   currentUser = user;
   if (useFirebase) {
@@ -149,7 +176,6 @@ function onAuthChange(user) {
     } else {
       unsubscribeAll();
       showAuthGate();
-      hideLoading();
     }
   }
 }
@@ -671,8 +697,12 @@ function initFirebase() {
   db = firebase.firestore();
   useFirebase = true;
 
+  // Cadangan: spinner max 5 detik, jangan muter selamanya
+  setTimeout(hideLoading, 5000);
+
   auth.onAuthStateChanged(onAuthChange);
   showAuthGate();
+  hideLoading();
 }
 
 initFirebase();
