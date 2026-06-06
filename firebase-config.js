@@ -1,5 +1,6 @@
 // Firebase — No Mercy List Setoran
-// Keamanan edit diatur lewat firestore.rules (copy ke Firebase Console)
+// WAJIB update firestore.rules di Console (lihat file firestore.rules)
+// Discord webhook & target mingguan diatur di tab Pengaturan setelah login
 
 const firebaseConfig = {
   apiKey: "AIzaSyDhJgCr0lLgfUNEKp0R0J7QLQ_sSEexfxc",

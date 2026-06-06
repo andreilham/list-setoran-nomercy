@@ -1,89 +1,60 @@
 const STORAGE_KEY = 'nomercy_setoran';
+const SETTINGS_DOC = 'main';
 
-const form = document.getElementById('setoran-form');
-const setoranList = document.getElementById('setoran-list');
-const emptyState = document.getElementById('empty-state');
-const searchInput = document.getElementById('search');
-const filterKeterangan = document.getElementById('filter-keterangan');
-const jumlahInput = document.getElementById('jumlah');
-const jumlahBtns = document.querySelectorAll('.jumlah-btn');
-const exportBtn = document.getElementById('export-btn');
-const modal = document.getElementById('modal');
-const modalCancel = document.getElementById('modal-cancel');
-const modalConfirm = document.getElementById('modal-confirm');
-const toast = document.getElementById('toast');
-const toastMsg = document.getElementById('toast-msg');
-const loginModal = document.getElementById('login-modal');
-const loginForm = document.getElementById('login-form');
-const loginError = document.getElementById('login-error');
-const adminFormSection = document.getElementById('admin-form-section');
-const viewerInfo = document.getElementById('viewer-info');
-const listSection = document.getElementById('list-section');
-const loadingEl = document.getElementById('loading');
-const setupBanner = document.getElementById('setup-banner');
-const btnMigrate = document.getElementById('btn-migrate');
-
-let deleteId = null;
 let allData = [];
-let isAdmin = false;
+let activityLogs = [];
+let settings = { targetMingguan: 2000, discordWebhook: '' };
+let isLoggedIn = false;
+let currentUser = null;
 let useFirebase = false;
 let db = null;
 let auth = null;
+let unsubSetoran = null;
+let unsubLog = null;
+let unsubSettings = null;
+let deleteId = null;
+let selectedWeek = new Date();
 
-const barangIcons = {
-  'Besi': '⚙️',
-  'Emas': '🥇',
-  'Tembaga': '🔶',
-  'Potongan Kayu': '🪵',
-};
-
+const barangIcons = { 'Besi': '⚙️', 'Emas': '🥇', 'Tembaga': '🔶', 'Potongan Kayu': '🪵' };
 const keteranganBadge = {
-  'Setoran Mingguan': 'badge-mingguan',
-  'Setoran Sanksi': 'badge-sanksi',
-  'Setoran Donasi': 'badge-donasi',
-  'Donasi Sukarela': 'badge-sukarela',
+  'Setoran Mingguan': 'badge-mingguan', 'Setoran Sanksi': 'badge-sanksi',
+  'Setoran Donasi': 'badge-donasi', 'Donasi Sukarela': 'badge-sukarela',
 };
+const logIcons = { CREATE: '➕', UPDATE: '✏️', DELETE: '🗑️', SETTINGS: '⚙️' };
+
+const $ = id => document.getElementById(id);
 
 function isFirebaseConfigured() {
-  return typeof firebaseConfig !== 'undefined'
-    && firebaseConfig.apiKey
-    && firebaseConfig.apiKey !== 'ISI_API_KEY_KAMU';
+  return typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey && firebaseConfig.apiKey !== 'ISI_API_KEY_KAMU';
 }
 
-function loadLocalData() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-  } catch {
-    return [];
-  }
-}
-
-function saveLocalData(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-function getData() {
-  return useFirebase ? allData : loadLocalData();
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str ?? '';
+  return d.innerHTML;
 }
 
 function formatDate(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function formatNumber(n) {
-  return Number(n).toLocaleString('id-ID');
+function formatNumber(n) { return Number(n).toLocaleString('id-ID'); }
+
+function formatDateTime(ts) {
+  if (!ts) return '—';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 function showToast(msg) {
-  toastMsg.textContent = msg;
-  toast.classList.remove('hidden');
-  setTimeout(() => toast.classList.add('hidden'), 2500);
+  $('toast-msg').textContent = msg;
+  $('toast').classList.remove('hidden');
+  setTimeout(() => $('toast').classList.add('hidden'), 2800);
 }
 
-function parseDate(dateStr) {
-  return new Date(dateStr + 'T00:00:00');
-}
+function hideLoading() { $('loading').classList.add('hidden'); }
+
+function parseDate(s) { return new Date(s + 'T00:00:00'); }
 
 function getWeekBounds(date = new Date()) {
   const d = new Date(date);
@@ -97,100 +68,212 @@ function getWeekBounds(date = new Date()) {
   return { start, end };
 }
 
-function getWeekStart() {
-  return getWeekBounds().start;
-}
-
 function formatWeekRange(start, end) {
-  const opts = { day: 'numeric', month: 'short', year: 'numeric' };
-  return `${start.toLocaleDateString('id-ID', opts)} — ${end.toLocaleDateString('id-ID', opts)}`;
+  const o = { day: 'numeric', month: 'short', year: 'numeric' };
+  return `${start.toLocaleDateString('id-ID', o)} — ${end.toLocaleDateString('id-ID', o)}`;
 }
 
-function getWeekKey(date) {
-  const { start } = getWeekBounds(date);
-  return start.toISOString().slice(0, 10);
-}
+function getWeekKey(date) { return getWeekBounds(date).start.toISOString().slice(0, 10); }
 
 function filterByWeek(data, weekDate) {
   const { start, end } = getWeekBounds(weekDate);
-  return data.filter(s => {
-    const d = parseDate(s.tanggal);
-    return d >= start && d <= end;
-  });
+  return data.filter(s => { const d = parseDate(s.tanggal); return d >= start && d <= end; });
 }
 
-let selectedWeek = new Date();
+function getData() { return allData; }
 
-function hideLoading() {
-  loadingEl.classList.add('hidden');
+function setoranSummary(s) {
+  return `${s.nama} — ${s.barang} ${formatNumber(s.jumlah)} (${s.keterangan})`;
 }
 
-function updateAdminUI() {
-  const canEdit = isAdmin || !useFirebase;
+// ─── Auth & UI shell ───────────────────────────────────────────
 
-  adminFormSection.classList.toggle('hidden', !canEdit);
-  viewerInfo.classList.toggle('hidden', canEdit);
-  listSection.classList.toggle('lg:col-span-3', canEdit);
-  listSection.classList.toggle('lg:col-span-5', !canEdit);
+function showAuthGate() {
+  $('auth-gate').classList.remove('hidden');
+  $('app-shell').classList.add('hidden');
+}
 
-  document.getElementById('btn-login').classList.toggle('hidden', isAdmin || !useFirebase);
-  document.getElementById('btn-logout').classList.toggle('hidden', !isAdmin || !useFirebase);
-  document.getElementById('admin-badge').classList.toggle('hidden', !isAdmin || !useFirebase);
-  document.getElementById('btn-login-viewer')?.classList.toggle('hidden', isAdmin || !useFirebase);
+function showApp() {
+  $('auth-gate').classList.add('hidden');
+  $('app-shell').classList.remove('hidden');
+  if (currentUser) $('user-email').textContent = currentUser.email;
+}
 
-  const localData = loadLocalData();
-  const showMigrate = useFirebase && isAdmin && localData.length > 0;
-  btnMigrate.classList.toggle('hidden', !showMigrate);
+function unsubscribeAll() {
+  [unsubSetoran, unsubLog, unsubSettings].forEach(u => u?.());
+  unsubSetoran = unsubLog = unsubSettings = null;
+  allData = [];
+  activityLogs = [];
+}
 
-  setupBanner.classList.toggle('hidden', useFirebase);
+function subscribeData() {
+  if (!db || !isLoggedIn) return;
+  unsubscribeAll();
 
-  const modeText = document.getElementById('mode-text');
-  const statusEl = document.getElementById('firebase-status');
-  statusEl.classList.remove('hidden');
+  unsubSetoran = db.collection('setoran').orderBy('tanggal', 'desc').onSnapshot(
+    snap => {
+      allData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderAll();
+      hideLoading();
+    },
+    err => { console.error(err); hideLoading(); showToast('⚠ Gagal load setoran'); }
+  );
 
-  if (!useFirebase) {
-    modeText.innerHTML = '<span class="text-yellow-400">●</span> Mode lokal — isi firebase-config.js lalu push ke GitHub';
-    statusEl.textContent = 'Firebase: belum aktif';
-  } else if (isAdmin) {
-    modeText.innerHTML = '<span class="text-green-400">●</span> Mode admin — data Firebase, kamu bisa input & hapus';
-    statusEl.textContent = 'Firebase: terhubung ✓';
-  } else {
-    modeText.innerHTML = '<span class="text-blue-400">●</span> Mode lihat — data shared online, login admin untuk edit';
-    statusEl.textContent = 'Firebase: terhubung ✓';
+  unsubLog = db.collection('activity_log').orderBy('createdAt', 'desc').limit(80).onSnapshot(
+    snap => {
+      activityLogs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderActivityLog();
+    }
+  );
+
+  unsubSettings = db.collection('settings').doc(SETTINGS_DOC).onSnapshot(
+    snap => {
+      if (snap.exists) {
+        settings = { targetMingguan: 2000, discordWebhook: '', ...snap.data() };
+        $('setting-target').value = settings.targetMingguan;
+        $('setting-discord').value = settings.discordWebhook || '';
+        $('target-display').textContent = formatNumber(settings.targetMingguan);
+      }
+      renderTargetProgress();
+    }
+  );
+}
+
+function onAuthChange(user) {
+  isLoggedIn = !!user;
+  currentUser = user;
+  if (useFirebase) {
+    if (user) {
+      showApp();
+      subscribeData();
+    } else {
+      unsubscribeAll();
+      showAuthGate();
+      hideLoading();
+    }
   }
-
-  document.getElementById('empty-hint').textContent = canEdit
-    ? 'Catat setoran pertama di form sebelah kiri'
-    : 'Belum ada data setoran';
 }
+
+// ─── Activity log & Discord ────────────────────────────────────
+
+async function logActivity(action, message, setoranId = null) {
+  if (!currentUser && useFirebase) return;
+  if (useFirebase) {
+    await db.collection('activity_log').add({
+      action, message, setoranId,
+      userEmail: currentUser.email,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  } else {
+    activityLogs.unshift({
+      id: String(Date.now()), action, message, setoranId,
+      userEmail: 'local@dev', createdAt: new Date(),
+    });
+    if (activityLogs.length > 80) activityLogs.pop();
+    renderActivityLog();
+  }
+}
+
+async function sendDiscord(title, color, fields) {
+  const url = settings.discordWebhook?.trim();
+  if (!url || !url.includes('discord.com/api/webhooks')) return;
+  try {
+    await fetch(url, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        embeds: [{ title, color, fields, footer: { text: 'No Mercy — Setoran Geng' }, timestamp: new Date().toISOString() }],
+      }),
+    });
+  } catch (e) { console.warn('Discord webhook:', e); }
+}
+
+function discordFields(s) {
+  return [
+    { name: 'Nama', value: s.nama, inline: true },
+    { name: 'Barang', value: s.barang, inline: true },
+    { name: 'Jumlah', value: formatNumber(s.jumlah), inline: true },
+    { name: 'Disetor Ke', value: s.disetor, inline: true },
+    { name: 'Keterangan', value: s.keterangan, inline: true },
+    { name: 'Tanggal', value: s.tanggal, inline: true },
+    { name: 'Oleh', value: currentUser?.email || '—', inline: false },
+  ];
+}
+
+// ─── CRUD Setoran ──────────────────────────────────────────────
+
+async function addSetoran(entry) {
+  if (useFirebase) {
+    const ref = await db.collection('setoran').add({
+      ...entry,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    await logActivity('CREATE', `Tambah setoran: ${setoranSummary(entry)}`, ref.id);
+    await sendDiscord('📦 Setoran Baru', 0x3b82f6, discordFields(entry));
+  } else {
+    allData.push({ id: String(Date.now()), ...entry });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allData));
+    await logActivity('CREATE', `Tambah setoran: ${setoranSummary(entry)}`);
+    renderAll();
+  }
+}
+
+async function updateSetoran(id, entry) {
+  if (useFirebase) {
+    await db.collection('setoran').doc(id).update({
+      ...entry,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    await logActivity('UPDATE', `Edit setoran: ${setoranSummary(entry)}`, id);
+    await sendDiscord('✏️ Setoran Diedit', 0x22d3ee, discordFields(entry));
+  } else {
+    const i = allData.findIndex(s => s.id === id);
+    if (i >= 0) allData[i] = { id, ...entry };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allData));
+    await logActivity('UPDATE', `Edit setoran: ${setoranSummary(entry)}`, id);
+    renderAll();
+  }
+}
+
+async function removeSetoran(id) {
+  const s = allData.find(x => x.id === id);
+  if (useFirebase) {
+    await db.collection('setoran').doc(id).delete();
+    if (s) {
+      await logActivity('DELETE', `Hapus setoran: ${setoranSummary(s)}`, id);
+      await sendDiscord('🗑️ Setoran Dihapus', 0xef4444, discordFields(s));
+    }
+  } else {
+    allData = allData.filter(x => x.id !== id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allData));
+    if (s) await logActivity('DELETE', `Hapus setoran: ${setoranSummary(s)}`, id);
+    renderAll();
+  }
+}
+
+// ─── Render ────────────────────────────────────────────────────
 
 function updateStats(data) {
-  const weekStart = getWeekStart();
+  const weekStart = getWeekBounds().start;
   const weekData = data.filter(s => parseDate(s.tanggal) >= weekStart);
-  const members = new Set(data.map(s => s.nama.toLowerCase()));
-
-  document.getElementById('stat-total').textContent = data.length;
-  document.getElementById('stat-week').textContent = weekData.length;
-  document.getElementById('stat-amount').textContent = formatNumber(data.reduce((sum, s) => sum + s.jumlah, 0));
-  document.getElementById('stat-members').textContent = members.size;
+  $('stat-total').textContent = data.length;
+  $('stat-week').textContent = weekData.length;
+  $('stat-amount').textContent = formatNumber(data.reduce((s, r) => s + r.jumlah, 0));
+  $('stat-members').textContent = new Set(data.map(s => s.nama.toLowerCase())).size;
 }
 
 function renderList() {
-  const data = getData();
-  const search = searchInput.value.toLowerCase();
-  const filter = filterKeterangan.value;
-  const canEdit = isAdmin || !useFirebase;
+  const search = $('search').value.toLowerCase();
+  const filter = $('filter-keterangan').value;
+  const filtered = getData().filter(s =>
+    s.nama.toLowerCase().includes(search) && (!filter || s.keterangan === filter)
+  ).sort((a, b) => parseDate(b.tanggal) - parseDate(a.tanggal));
 
-  const filtered = data.filter(s => {
-    const matchSearch = s.nama.toLowerCase().includes(search);
-    const matchFilter = !filter || s.keterangan === filter;
-    return matchSearch && matchFilter;
-  });
-
-  filtered.sort((a, b) => parseDate(b.tanggal) - parseDate(a.tanggal) || String(b.id).localeCompare(String(a.id)));
-
-  setoranList.innerHTML = '';
-  emptyState.classList.toggle('hidden', filtered.length > 0);
+  const list = $('setoran-list');
+  list.innerHTML = '';
+  $('empty-state').classList.toggle('hidden', filtered.length > 0);
 
   filtered.forEach(s => {
     const card = document.createElement('div');
@@ -203,432 +286,393 @@ function renderList() {
         </div>
         <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-mercy-muted">
           <span>${formatDate(s.tanggal)}</span>
-          <span class="flex items-center gap-1">
-            <span class="barang-icon">${barangIcons[s.barang] || ''}</span>
-            ${escapeHtml(s.barang)}
-          </span>
-          <span class="text-red-400 font-semibold">${formatNumber(s.jumlah)}</span>
+          <span>${barangIcons[s.barang] || ''} ${escapeHtml(s.barang)}</span>
+          <span class="text-cyan-400 font-semibold">${formatNumber(s.jumlah)}</span>
           <span>→ ${escapeHtml(s.disetor)}</span>
         </div>
       </div>
-      ${canEdit ? `<button class="delete-btn" data-id="${s.id}" title="Hapus">✕</button>` : ''}
-    `;
-    setoranList.appendChild(card);
+      <div class="flex gap-1">
+        <button class="edit-btn" data-id="${s.id}" title="Edit">✎</button>
+        <button class="delete-btn" data-id="${s.id}" title="Hapus">✕</button>
+      </div>`;
+    list.appendChild(card);
   });
 
-  document.getElementById('list-count').textContent = `${filtered.length} setoran`;
-  updateStats(data);
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-function renderAll() {
-  renderList();
-  if (!document.getElementById('panel-laporan').classList.contains('hidden')) {
-    renderWeeklyReport();
-  }
-}
-
-async function addSetoran(entry) {
-  if (useFirebase) {
-    await db.collection('setoran').add({
-      ...entry,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
-  } else {
-    const data = loadLocalData();
-    data.push({ id: Date.now(), ...entry });
-    saveLocalData(data);
-    allData = data;
-    renderAll();
-  }
-}
-
-async function removeSetoran(id) {
-  if (useFirebase) {
-    await db.collection('setoran').doc(String(id)).delete();
-  } else {
-    const data = loadLocalData().filter(s => s.id !== id);
-    saveLocalData(data);
-    allData = data;
-    renderAll();
-  }
-}
-
-async function migrateLocalToFirebase() {
-  const localData = loadLocalData();
-  if (!localData.length) {
-    showToast('⚠ Tidak ada data lokal untuk diupload');
-    return;
-  }
-  if (!confirm(`Upload ${localData.length} setoran dari browser ke Firebase?`)) return;
-
-  btnMigrate.disabled = true;
-  btnMigrate.textContent = 'Mengupload...';
-
-  try {
-    const batch = db.batch();
-    localData.forEach(s => {
-      const ref = db.collection('setoran').doc();
-      const { id, ...rest } = s;
-      batch.set(ref, { ...rest, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-    });
-    await batch.commit();
-    localStorage.removeItem(STORAGE_KEY);
-    showToast(`✓ ${localData.length} setoran berhasil diupload ke Firebase`);
-    updateAdminUI();
-  } catch (err) {
-    console.error(err);
-    showToast('⚠ Gagal upload — cek Firestore Rules');
-  } finally {
-    btnMigrate.disabled = false;
-    btnMigrate.textContent = '↑ Upload data lokal ke Firebase';
-  }
-}
-
-function initFirebase() {
-  if (!isFirebaseConfigured()) {
-    useFirebase = false;
-    allData = loadLocalData();
-    isAdmin = true;
-    updateAdminUI();
-    renderAll();
-    hideLoading();
-    return;
-  }
-
-  firebase.initializeApp(firebaseConfig);
-  auth = firebase.auth();
-  db = firebase.firestore();
-  useFirebase = true;
-  isAdmin = false;
-
-  auth.onAuthStateChanged(user => {
-    isAdmin = !!user;
-    updateAdminUI();
-    renderList();
-  });
-
-  db.collection('setoran')
-    .orderBy('tanggal', 'desc')
-    .onSnapshot(
-      snapshot => {
-        allData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        renderAll();
-        hideLoading();
-      },
-      err => {
-        console.error(err);
-        hideLoading();
-        showToast('⚠ Gagal load Firebase — cek Rules & config');
-      }
-    );
-
-  updateAdminUI();
-}
-
-function openLoginModal() {
-  loginError.classList.add('hidden');
-  loginForm.reset();
-  loginModal.classList.remove('hidden');
-}
-
-function closeLoginModal() {
-  loginModal.classList.add('hidden');
-}
-
-document.getElementById('tanggal').valueAsDate = new Date();
-
-jumlahBtns.forEach(btn => {
-  btn.addEventListener('click', () => {
-    jumlahBtns.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    jumlahInput.value = btn.dataset.value;
-  });
-});
-
-form.addEventListener('submit', async e => {
-  e.preventDefault();
-
-  if (useFirebase && !isAdmin) {
-    showToast('⚠ Login admin dulu untuk input setoran');
-    return;
-  }
-
-  if (!jumlahInput.value) {
-    showToast('⚠ Pilih jumlah setoran dulu!');
-    return;
-  }
-
-  const entry = {
-    tanggal: form.tanggal.value,
-    nama: form.nama.value.trim(),
-    barang: form.barang.value,
-    jumlah: Number(jumlahInput.value),
-    disetor: form.disetor.value,
-    keterangan: form.keterangan.value,
-  };
-
-  try {
-    await addSetoran(entry);
-
-    form.nama.value = '';
-    form.barang.selectedIndex = 0;
-    form.disetor.selectedIndex = 0;
-    form.keterangan.selectedIndex = 0;
-    jumlahInput.value = '';
-    jumlahBtns.forEach(b => b.classList.remove('active'));
-
-    showToast('✓ Setoran berhasil dicatat!');
-  } catch (err) {
-    console.error(err);
-    showToast('⚠ Gagal menyimpan setoran');
-  }
-});
-
-setoranList.addEventListener('click', e => {
-  const btn = e.target.closest('.delete-btn');
-  if (!btn) return;
-  if (useFirebase && !isAdmin) return;
-  deleteId = btn.dataset.id;
-  modal.classList.remove('hidden');
-});
-
-modalCancel.addEventListener('click', () => {
-  modal.classList.add('hidden');
-  deleteId = null;
-});
-
-modalConfirm.addEventListener('click', async () => {
-  if (deleteId) {
-    try {
-      await removeSetoran(deleteId);
-      showToast('Setoran dihapus');
-    } catch (err) {
-      console.error(err);
-      showToast('⚠ Gagal menghapus setoran');
-    }
-  }
-  modal.classList.add('hidden');
-  deleteId = null;
-});
-
-modal.querySelector('.modal-backdrop').addEventListener('click', () => {
-  modal.classList.add('hidden');
-  deleteId = null;
-});
-
-searchInput.addEventListener('input', renderList);
-filterKeterangan.addEventListener('change', renderList);
-
-exportBtn.addEventListener('click', () => {
-  const data = getData();
-  if (!data.length) {
-    showToast('⚠ Tidak ada data untuk diexport');
-    return;
-  }
-
-  const headers = ['Tanggal', 'Nama', 'Barang', 'Jumlah', 'Disetor Ke', 'Keterangan'];
-  const rows = data.map(s => [
-    s.tanggal, s.nama, s.barang, s.jumlah, s.disetor, s.keterangan,
-  ]);
-
-  downloadCsv(headers, rows, `setoran-no-mercy-${new Date().toISOString().slice(0, 10)}.csv`);
-  showToast('✓ CSV berhasil didownload');
-});
-
-function downloadCsv(headers, rows, filename) {
-  const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  $('list-count').textContent = `${filtered.length} setoran`;
+  updateStats(getData());
 }
 
 function groupSum(data, key) {
   const map = {};
   data.forEach(s => {
-    const k = s[key];
-    if (!map[k]) map[k] = { count: 0, total: 0 };
-    map[k].count++;
-    map[k].total += s.jumlah;
+    if (!map[s[key]]) map[s[key]] = { count: 0, total: 0 };
+    map[s[key]].count++;
+    map[s[key]].total += s.jumlah;
   });
-  return Object.entries(map)
-    .map(([name, v]) => ({ name, ...v }))
-    .sort((a, b) => b.total - a.total);
+  return Object.entries(map).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.total - a.total);
 }
 
-function renderBarList(containerId, emptyId, items, showCount = true) {
-  const container = document.getElementById(containerId);
-  const empty = document.getElementById(emptyId);
-  container.innerHTML = '';
-
-  if (!items.length) {
-    empty.classList.remove('hidden');
-    return;
-  }
-  empty.classList.add('hidden');
-
+function renderBarList(containerId, emptyId, items) {
+  const c = $(containerId), e = $(emptyId);
+  c.innerHTML = '';
+  if (!items.length) { e.classList.remove('hidden'); return; }
+  e.classList.add('hidden');
   const max = items[0].total;
   items.forEach(item => {
-    const pct = max ? (item.total / max) * 100 : 0;
     const row = document.createElement('div');
     row.className = 'report-row';
     row.innerHTML = `
-      <span class="report-row-label" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
-      <div class="report-row-bar-wrap">
-        <div class="report-row-bar" style="width:${pct}%"></div>
-      </div>
+      <span class="report-row-label">${escapeHtml(item.name)}</span>
+      <div class="report-row-bar-wrap"><div class="report-row-bar" style="width:${max ? item.total / max * 100 : 0}%"></div></div>
       <span class="report-row-value">${formatNumber(item.total)}</span>
-      ${showCount ? `<span class="report-row-meta">${item.count}x</span>` : ''}
-    `;
-    container.appendChild(row);
+      <span class="report-row-meta">${item.count}x</span>`;
+    c.appendChild(row);
+  });
+}
+
+function renderTargetProgress() {
+  const target = settings.targetMingguan || 2000;
+  $('target-display').textContent = formatNumber(target);
+  const weekData = filterByWeek(getData(), selectedWeek)
+    .filter(s => s.keterangan === 'Setoran Mingguan');
+
+  const byMember = {};
+  weekData.forEach(s => {
+    const k = s.nama.toLowerCase();
+    if (!byMember[k]) byMember[k] = { name: s.nama, total: 0 };
+    byMember[k].total += s.jumlah;
+  });
+
+  const members = Object.values(byMember).sort((a, b) => b.total - a.total);
+  const list = $('target-list');
+  list.innerHTML = '';
+
+  if (!members.length) {
+    $('target-empty').classList.remove('hidden');
+    return;
+  }
+  $('target-empty').classList.add('hidden');
+
+  members.forEach(m => {
+    const pct = Math.min(100, (m.total / target) * 100);
+    const done = m.total >= target;
+    const row = document.createElement('div');
+    row.className = 'target-row';
+    row.innerHTML = `
+      <div class="flex items-center justify-between mb-1">
+        <span class="font-semibold text-sm">${escapeHtml(m.name)}</span>
+        <span class="text-xs ${done ? 'text-cyan-400' : 'text-mercy-muted'}">${formatNumber(m.total)} / ${formatNumber(target)} ${done ? '✓' : ''}</span>
+      </div>
+      <div class="target-bar-wrap"><div class="target-bar ${done ? 'target-bar-done' : ''}" style="width:${pct}%"></div></div>`;
+    list.appendChild(row);
   });
 }
 
 function renderWeeklyReport() {
-  const data = getData();
-  const weekData = filterByWeek(data, selectedWeek);
+  const weekData = filterByWeek(getData(), selectedWeek);
   const { start, end } = getWeekBounds(selectedWeek);
-
-  document.getElementById('laporan-range').textContent = formatWeekRange(start, end);
-
-  const mingguanCount = weekData.filter(s => s.keterangan === 'Setoran Mingguan').length;
-  const members = new Set(weekData.map(s => s.nama.toLowerCase()));
-
-  document.getElementById('week-stat-count').textContent = weekData.length;
-  document.getElementById('week-stat-amount').textContent = formatNumber(weekData.reduce((s, r) => s + r.jumlah, 0));
-  document.getElementById('week-stat-members').textContent = members.size;
-  document.getElementById('week-stat-mingguan').textContent = mingguanCount;
+  $('laporan-range').textContent = formatWeekRange(start, end);
+  $('week-stat-count').textContent = weekData.length;
+  $('week-stat-amount').textContent = formatNumber(weekData.reduce((s, r) => s + r.jumlah, 0));
+  $('week-stat-members').textContent = new Set(weekData.map(s => s.nama.toLowerCase())).size;
+  $('week-stat-mingguan').textContent = weekData.filter(s => s.keterangan === 'Setoran Mingguan').length;
 
   renderBarList('report-members', 'report-members-empty', groupSum(weekData, 'nama'));
   renderBarList('report-barang', 'report-barang-empty', groupSum(weekData, 'barang'));
-  renderBarList('report-keterangan', 'report-keterangan-empty', groupSum(weekData, 'keterangan'));
-  renderBarList('report-disetor', 'report-disetor-empty', groupSum(weekData, 'disetor'));
+  renderTargetProgress();
 
-  const tbody = document.getElementById('report-table-body');
-  const tableEmpty = document.getElementById('report-table-empty');
+  const tbody = $('report-table-body');
   tbody.innerHTML = '';
+  const sorted = [...weekData].sort((a, b) => parseDate(b.tanggal) - parseDate(a.tanggal));
+  $('report-table-empty').classList.toggle('hidden', sorted.length > 0);
+  sorted.forEach(s => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${formatDate(s.tanggal)}</td><td class="font-semibold">${escapeHtml(s.nama)}</td>
+      <td>${barangIcons[s.barang] || ''} ${escapeHtml(s.barang)}</td>
+      <td class="amount">${formatNumber(s.jumlah)}</td>
+      <td>${escapeHtml(s.disetor)}</td>
+      <td><span class="badge ${keteranganBadge[s.keterangan] || ''}">${escapeHtml(s.keterangan)}</span></td>`;
+    tbody.appendChild(tr);
+  });
 
-  const sorted = [...weekData].sort((a, b) => parseDate(b.tanggal) - parseDate(a.tanggal) || String(b.id).localeCompare(String(a.id)));
+  const cur = getWeekKey(selectedWeek) === getWeekKey(new Date());
+  $('week-current').classList.toggle('ring-1', cur);
+  $('week-current').classList.toggle('ring-blue-500/50', cur);
+}
 
-  if (!sorted.length) {
-    tableEmpty.classList.remove('hidden');
-  } else {
-    tableEmpty.classList.add('hidden');
-    sorted.forEach(s => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${formatDate(s.tanggal)}</td>
-        <td class="font-semibold">${escapeHtml(s.nama)}</td>
-        <td>${barangIcons[s.barang] || ''} ${escapeHtml(s.barang)}</td>
-        <td class="amount">${formatNumber(s.jumlah)}</td>
-        <td>${escapeHtml(s.disetor)}</td>
-        <td><span class="badge ${keteranganBadge[s.keterangan] || ''}">${escapeHtml(s.keterangan)}</span></td>
-      `;
-      tbody.appendChild(tr);
-    });
+function renderLeaderboard() {
+  const period = $('leaderboard-period').value;
+  let data = period === 'week' ? filterByWeek(getData(), new Date()) : getData();
+  const map = {};
+  data.forEach(s => {
+    const k = s.nama.toLowerCase();
+    if (!map[k]) map[k] = { name: s.nama, total: 0, count: 0 };
+    map[k].total += s.jumlah;
+    map[k].count++;
+  });
+  const ranked = Object.values(map).sort((a, b) => b.total - a.total);
+  const list = $('leaderboard-list');
+  list.innerHTML = '';
+
+  if (!ranked.length) { $('leaderboard-empty').classList.remove('hidden'); return; }
+  $('leaderboard-empty').classList.add('hidden');
+
+  const medals = ['🥇', '🥈', '🥉'];
+  ranked.forEach((m, i) => {
+    const row = document.createElement('div');
+    row.className = 'leaderboard-row';
+    row.innerHTML = `
+      <span class="leaderboard-rank">${medals[i] || `#${i + 1}`}</span>
+      <span class="leaderboard-name">${escapeHtml(m.name)}</span>
+      <span class="leaderboard-meta">${m.count}x setoran</span>
+      <span class="leaderboard-total">${formatNumber(m.total)}</span>`;
+    list.appendChild(row);
+  });
+}
+
+function renderActivityLog() {
+  const list = $('activity-log');
+  list.innerHTML = '';
+  if (!activityLogs.length) { $('activity-empty').classList.remove('hidden'); return; }
+  $('activity-empty').classList.add('hidden');
+
+  activityLogs.forEach(log => {
+    const row = document.createElement('div');
+    row.className = 'log-row';
+    row.innerHTML = `
+      <span class="log-icon">${logIcons[log.action] || '•'}</span>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm text-white">${escapeHtml(log.message)}</p>
+        <p class="text-xs text-mercy-muted mt-0.5">${escapeHtml(log.userEmail)} · ${formatDateTime(log.createdAt)}</p>
+      </div>
+      <span class="log-badge log-${(log.action || '').toLowerCase()}">${log.action}</span>`;
+    list.appendChild(row);
+  });
+}
+
+function renderAll() {
+  if (!isLoggedIn && useFirebase) return;
+  renderList();
+  const active = document.querySelector('.tab-btn.active')?.dataset.tab;
+  if (active === 'laporan') renderWeeklyReport();
+  if (active === 'leaderboard') renderLeaderboard();
+  if (active === 'log') renderActivityLog();
+}
+
+// ─── Tabs ──────────────────────────────────────────────────────
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
+    $(`panel-${btn.dataset.tab}`).classList.remove('hidden');
+    if (btn.dataset.tab === 'laporan') renderWeeklyReport();
+    if (btn.dataset.tab === 'leaderboard') renderLeaderboard();
+    if (btn.dataset.tab === 'log') renderActivityLog();
+  });
+});
+
+// ─── Form: tambah setoran ──────────────────────────────────────
+
+$('tanggal').valueAsDate = new Date();
+document.querySelectorAll('.jumlah-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.jumlah-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    $('jumlah').value = btn.dataset.value;
+  });
+});
+
+$('setoran-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!$('jumlah').value) { showToast('⚠ Pilih jumlah dulu!'); return; }
+  const entry = {
+    tanggal: $('tanggal').value,
+    nama: $('nama').value.trim(),
+    barang: $('barang').value,
+    jumlah: Number($('jumlah').value),
+    disetor: $('disetor').value,
+    keterangan: $('keterangan').value,
+  };
+  try {
+    await addSetoran(entry);
+    $('setoran-form').reset();
+    $('tanggal').valueAsDate = new Date();
+    $('jumlah').value = '';
+    document.querySelectorAll('.jumlah-btn').forEach(b => b.classList.remove('active'));
+    showToast('✓ Setoran dicatat!');
+  } catch (err) { console.error(err); showToast('⚠ Gagal menyimpan'); }
+});
+
+// ─── Edit & Delete ─────────────────────────────────────────────
+
+function openEditModal(id) {
+  const s = allData.find(x => x.id === id);
+  if (!s) return;
+  $('edit-id').value = id;
+  $('edit-tanggal').value = s.tanggal;
+  $('edit-nama').value = s.nama;
+  $('edit-barang').value = s.barang;
+  $('edit-jumlah').value = s.jumlah;
+  $('edit-disetor').value = s.disetor;
+  $('edit-keterangan').value = s.keterangan;
+  $('edit-modal').classList.remove('hidden');
+}
+
+$('setoran-list').addEventListener('click', e => {
+  const edit = e.target.closest('.edit-btn');
+  const del = e.target.closest('.delete-btn');
+  if (edit) openEditModal(edit.dataset.id);
+  if (del) { deleteId = del.dataset.id; $('delete-modal').classList.remove('hidden'); }
+});
+
+$('edit-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const id = $('edit-id').value;
+  const entry = {
+    tanggal: $('edit-tanggal').value,
+    nama: $('edit-nama').value.trim(),
+    barang: $('edit-barang').value,
+    jumlah: Number($('edit-jumlah').value),
+    disetor: $('edit-disetor').value,
+    keterangan: $('edit-keterangan').value,
+  };
+  try {
+    await updateSetoran(id, entry);
+    $('edit-modal').classList.add('hidden');
+    showToast('✓ Setoran diupdate!');
+  } catch (err) { console.error(err); showToast('⚠ Gagal update'); }
+});
+
+$('edit-cancel').addEventListener('click', () => $('edit-modal').classList.add('hidden'));
+$('edit-modal').querySelector('[data-close="edit-modal"]').addEventListener('click', () => $('edit-modal').classList.add('hidden'));
+
+$('delete-cancel').addEventListener('click', () => { $('delete-modal').classList.add('hidden'); deleteId = null; });
+$('delete-modal').querySelector('[data-close="delete-modal"]').addEventListener('click', () => { $('delete-modal').classList.add('hidden'); deleteId = null; });
+$('delete-confirm').addEventListener('click', async () => {
+  if (deleteId) {
+    try { await removeSetoran(deleteId); showToast('Setoran dihapus'); }
+    catch (err) { showToast('⚠ Gagal hapus'); }
   }
+  $('delete-modal').classList.add('hidden');
+  deleteId = null;
+});
 
-  const isCurrentWeek = getWeekKey(selectedWeek) === getWeekKey(new Date());
-  document.getElementById('week-current').classList.toggle('ring-1', isCurrentWeek);
-  document.getElementById('week-current').classList.toggle('ring-red-500/50', isCurrentWeek);
+// ─── Settings ──────────────────────────────────────────────────
+
+$('settings-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const targetMingguan = Number($('setting-target').value) || 2000;
+  const discordWebhook = $('setting-discord').value.trim();
+  try {
+    if (useFirebase) {
+      await db.collection('settings').doc(SETTINGS_DOC).set({ targetMingguan, discordWebhook }, { merge: true });
+      await logActivity('SETTINGS', `Update pengaturan: target ${formatNumber(targetMingguan)}`);
+    } else {
+      settings = { targetMingguan, discordWebhook };
+    }
+    showToast('✓ Pengaturan disimpan!');
+  } catch (err) { console.error(err); showToast('⚠ Gagal simpan pengaturan'); }
+});
+
+// ─── Export & filters ──────────────────────────────────────────
+
+$('search').addEventListener('input', renderList);
+$('filter-keterangan').addEventListener('change', renderList);
+$('leaderboard-period').addEventListener('change', renderLeaderboard);
+
+function downloadCsv(headers, rows, filename) {
+  const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
 }
 
-const tabSetoran = document.getElementById('tab-setoran');
-const tabLaporan = document.getElementById('tab-laporan');
-const panelSetoran = document.getElementById('panel-setoran');
-const panelLaporan = document.getElementById('panel-laporan');
-const statsSection = document.getElementById('stats');
+$('export-btn').addEventListener('click', () => {
+  const data = getData();
+  if (!data.length) { showToast('⚠ Tidak ada data'); return; }
+  downloadCsv(
+    ['Tanggal', 'Nama', 'Barang', 'Jumlah', 'Disetor Ke', 'Keterangan'],
+    data.map(s => [s.tanggal, s.nama, s.barang, s.jumlah, s.disetor, s.keterangan]),
+    `setoran-no-mercy-${new Date().toISOString().slice(0, 10)}.csv`
+  );
+  showToast('✓ CSV didownload');
+});
 
-function switchTab(tab) {
-  const isSetoran = tab === 'setoran';
-  tabSetoran.classList.toggle('active', isSetoran);
-  tabLaporan.classList.toggle('active', !isSetoran);
-  panelSetoran.classList.toggle('hidden', !isSetoran);
-  panelLaporan.classList.toggle('hidden', isSetoran);
-  statsSection.classList.toggle('hidden', !isSetoran);
-  if (!isSetoran) renderWeeklyReport();
-}
-
-tabSetoran.addEventListener('click', () => switchTab('setoran'));
-tabLaporan.addEventListener('click', () => switchTab('laporan'));
-
-document.getElementById('week-prev').addEventListener('click', () => {
+$('week-prev').addEventListener('click', () => {
   selectedWeek = new Date(selectedWeek);
   selectedWeek.setDate(selectedWeek.getDate() - 7);
   renderWeeklyReport();
 });
-
-document.getElementById('week-next').addEventListener('click', () => {
+$('week-next').addEventListener('click', () => {
   selectedWeek = new Date(selectedWeek);
   selectedWeek.setDate(selectedWeek.getDate() + 7);
   renderWeeklyReport();
 });
+$('week-current').addEventListener('click', () => { selectedWeek = new Date(); renderWeeklyReport(); });
 
-document.getElementById('week-current').addEventListener('click', () => {
-  selectedWeek = new Date();
-  renderWeeklyReport();
-});
-
-document.getElementById('export-week-btn').addEventListener('click', () => {
+$('export-week-btn').addEventListener('click', () => {
   const weekData = filterByWeek(getData(), selectedWeek);
-  if (!weekData.length) {
-    showToast('⚠ Tidak ada data minggu ini');
-    return;
-  }
-
+  if (!weekData.length) { showToast('⚠ Kosong'); return; }
   const { start } = getWeekBounds(selectedWeek);
-  const headers = ['Tanggal', 'Nama', 'Barang', 'Jumlah', 'Disetor Ke', 'Keterangan'];
-  const rows = weekData
-    .sort((a, b) => parseDate(a.tanggal) - parseDate(b.tanggal))
-    .map(s => [s.tanggal, s.nama, s.barang, s.jumlah, s.disetor, s.keterangan]);
-
-  downloadCsv(headers, rows, `laporan-no-mercy-${start.toISOString().slice(0, 10)}.csv`);
-  showToast('✓ Laporan mingguan didownload');
+  downloadCsv(
+    ['Tanggal', 'Nama', 'Barang', 'Jumlah', 'Disetor Ke', 'Keterangan'],
+    weekData.sort((a, b) => parseDate(a.tanggal) - parseDate(b.tanggal)).map(s => [s.tanggal, s.nama, s.barang, s.jumlah, s.disetor, s.keterangan]),
+    `laporan-${start.toISOString().slice(0, 10)}.csv`
+  );
 });
 
-document.getElementById('btn-login').addEventListener('click', openLoginModal);
-document.getElementById('btn-login-viewer').addEventListener('click', openLoginModal);
-document.getElementById('login-cancel').addEventListener('click', closeLoginModal);
-loginModal.querySelector('[data-close="login-modal"]').addEventListener('click', closeLoginModal);
+// ─── Login / Logout ────────────────────────────────────────────
 
-document.getElementById('btn-logout').addEventListener('click', async () => {
-  try {
-    await auth.signOut();
-    showToast('Logout berhasil');
-  } catch (err) {
-    showToast('⚠ Gagal logout');
-  }
-});
-
-loginForm.addEventListener('submit', async e => {
-  e.preventDefault();
-  loginError.classList.add('hidden');
-
-  const email = document.getElementById('login-email').value.trim();
-  const password = document.getElementById('login-password').value;
-
+async function handleLogin(email, password, errorEl) {
+  errorEl.classList.add('hidden');
   try {
     await auth.signInWithEmailAndPassword(email, password);
-    closeLoginModal();
-    showToast('✓ Login berhasil — mode admin aktif');
-  } catch (err) {
-    loginError.textContent = 'Email atau password salah';
-    loginError.classList.remove('hidden');
+    showToast('✓ Login berhasil!');
+    return true;
+  } catch {
+    errorEl.textContent = 'Email atau password salah';
+    errorEl.classList.remove('hidden');
+    return false;
   }
+}
+
+$('gate-login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  await handleLogin($('gate-email').value.trim(), $('gate-password').value, $('gate-login-error'));
 });
 
-btnMigrate.addEventListener('click', migrateLocalToFirebase);
+$('btn-logout').addEventListener('click', async () => {
+  try { await auth.signOut(); showToast('Logout berhasil'); } catch { showToast('⚠ Gagal logout'); }
+});
+
+// ─── Init ──────────────────────────────────────────────────────
+
+function initLocalDev() {
+  useFirebase = false;
+  isLoggedIn = true;
+  try { allData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { allData = []; }
+  showApp();
+  $('user-email').textContent = 'Mode lokal (dev)';
+  $('setup-banner').classList.remove('hidden');
+  hideLoading();
+  renderAll();
+}
+
+function initFirebase() {
+  if (!isFirebaseConfigured()) { initLocalDev(); return; }
+
+  firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+  db = firebase.firestore();
+  useFirebase = true;
+
+  auth.onAuthStateChanged(onAuthChange);
+  showAuthGate();
+}
 
 initFirebase();
