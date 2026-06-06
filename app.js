@@ -4,7 +4,7 @@ const SETTINGS_DOC = 'main';
 let allData = [];
 let activityLogs = [];
 let settings = { targetMingguan: 2000, discordWebhook: '' };
-let isLoggedIn = false;
+let isAdmin = false;
 let currentUser = null;
 let useFirebase = false;
 let db = null;
@@ -110,17 +110,46 @@ function setoranSummary(s) {
   return `${s.nama} — ${s.barang} ${formatNumber(s.jumlah)} (${s.keterangan})`;
 }
 
-// ─── Auth & UI shell ───────────────────────────────────────────
+// ─── Auth & UI ─────────────────────────────────────────────────
 
-function showAuthGate() {
-  $('auth-gate').classList.remove('hidden');
-  $('app-shell').classList.add('hidden');
+function updateAdminUI() {
+  const canEdit = isAdmin || !useFirebase;
+
+  $('admin-form-section')?.classList.toggle('hidden', !canEdit);
+  $('viewer-info')?.classList.toggle('hidden', canEdit);
+  $('list-section')?.classList.toggle('lg:col-span-3', canEdit);
+  $('list-section')?.classList.toggle('lg:col-span-5', !canEdit);
+
+  $('btn-login')?.classList.toggle('hidden', isAdmin);
+  $('btn-logout')?.classList.toggle('hidden', !isAdmin);
+  $('admin-badge')?.classList.toggle('hidden', !isAdmin);
+  $('btn-login-viewer')?.classList.toggle('hidden', isAdmin);
+  $('tab-pengaturan')?.classList.toggle('hidden', !isAdmin);
+
+  if (!isAdmin && document.querySelector('.tab-btn[data-tab="pengaturan"]')?.classList.contains('active')) {
+    document.querySelector('.tab-btn[data-tab="setoran"]')?.click();
+  }
+
+  const modeText = $('mode-text');
+  if (modeText) {
+    if (isAdmin) {
+      modeText.innerHTML = '<span class="text-cyan-400">●</span> Mode admin — kamu bisa input, edit & hapus setoran';
+    } else {
+      modeText.innerHTML = '<span class="text-blue-400">●</span> Mode lihat — login admin untuk input & edit';
+    }
+  }
+
+  renderList();
 }
 
-function showApp() {
-  $('auth-gate').classList.add('hidden');
-  $('app-shell').classList.remove('hidden');
-  if (currentUser) $('user-email').textContent = currentUser.email;
+function openLoginModal() {
+  $('login-error')?.classList.add('hidden');
+  $('login-form')?.reset();
+  $('login-modal')?.classList.remove('hidden');
+}
+
+function closeLoginModal() {
+  $('login-modal')?.classList.add('hidden');
 }
 
 function unsubscribeAll() {
@@ -131,7 +160,7 @@ function unsubscribeAll() {
 }
 
 function subscribeData() {
-  if (!db || !isLoggedIn) return;
+  if (!db) return;
   unsubscribeAll();
   setListLoading(true);
 
@@ -141,7 +170,6 @@ function subscribeData() {
     setListLoading(false);
   };
 
-  // Load cepat pakai get(), lalu realtime pakai onSnapshot
   db.collection('setoran').orderBy('tanggal', 'desc').get()
     .then(applySetoran)
     .catch(err => {
@@ -155,7 +183,7 @@ function subscribeData() {
     err => {
       console.error(err);
       setListLoading(false);
-      showToast('⚠ Gagal sync setoran — cek Firestore Rules');
+      showToast('⚠ Gagal sync setoran');
     }
   );
 
@@ -171,9 +199,9 @@ function subscribeData() {
     snap => {
       if (snap.exists) {
         settings = { targetMingguan: 2000, discordWebhook: '', ...snap.data() };
-        $('setting-target').value = settings.targetMingguan;
-        $('setting-discord').value = settings.discordWebhook || '';
-        $('target-display').textContent = formatNumber(settings.targetMingguan);
+        if ($('setting-target')) $('setting-target').value = settings.targetMingguan;
+        if ($('setting-discord')) $('setting-discord').value = settings.discordWebhook || '';
+        if ($('target-display')) $('target-display').textContent = formatNumber(settings.targetMingguan);
       }
       renderTargetProgress();
     },
@@ -183,17 +211,9 @@ function subscribeData() {
 
 function onAuthChange(user) {
   hideLoading();
-  isLoggedIn = !!user;
+  isAdmin = !!user;
   currentUser = user;
-  if (useFirebase) {
-    if (user) {
-      showApp();
-      subscribeData();
-    } else {
-      unsubscribeAll();
-      showAuthGate();
-    }
-  }
+  updateAdminUI();
 }
 
 // ─── Activity log & Discord ────────────────────────────────────
@@ -320,6 +340,7 @@ function renderList() {
   filtered.forEach(s => {
     const card = document.createElement('div');
     card.className = 'setoran-card';
+    const canEdit = isAdmin || !useFirebase;
     card.innerHTML = `
       <div>
         <div class="flex flex-wrap items-center gap-2 mb-1.5">
@@ -333,10 +354,10 @@ function renderList() {
           <span>→ ${escapeHtml(s.disetor)}</span>
         </div>
       </div>
-      <div class="flex gap-1">
+      ${canEdit ? `<div class="flex gap-1">
         <button class="edit-btn" data-id="${s.id}" title="Edit">✎</button>
         <button class="delete-btn" data-id="${s.id}" title="Hapus">✕</button>
-      </div>`;
+      </div>` : ''}`;
     list.appendChild(card);
   });
 
@@ -494,7 +515,6 @@ function renderActivityLog() {
 }
 
 function renderAll() {
-  if (!isLoggedIn && useFirebase) return;
   renderList();
   const active = document.querySelector('.tab-btn.active')?.dataset.tab;
   if (active === 'laporan') renderWeeklyReport();
@@ -531,6 +551,7 @@ function bindEvents() {
 
   on('setoran-form', 'submit', async e => {
     e.preventDefault();
+    if (useFirebase && !isAdmin) { showToast('⚠ Login admin dulu'); openLoginModal(); return; }
     if (!$('jumlah')?.value) { showToast('⚠ Pilih jumlah dulu!'); return; }
     const entry = {
       tanggal: $('tanggal').value,
@@ -551,6 +572,7 @@ function bindEvents() {
   });
 
   on('setoran-list', 'click', e => {
+    if (!isAdmin && useFirebase) return;
     const edit = e.target.closest('.edit-btn');
     const del = e.target.closest('.delete-btn');
     if (edit) openEditModal(edit.dataset.id);
@@ -592,6 +614,7 @@ function bindEvents() {
 
   on('settings-form', 'submit', async e => {
     e.preventDefault();
+    if (!isAdmin) { showToast('⚠ Login admin dulu'); return; }
     const targetMingguan = Number($('setting-target')?.value) || 2000;
     const discordWebhook = $('setting-discord')?.value.trim() || '';
     try {
@@ -643,9 +666,15 @@ function bindEvents() {
     );
   });
 
-  on('gate-login-form', 'submit', async e => {
+  on('btn-login', 'click', openLoginModal);
+  on('btn-login-viewer', 'click', openLoginModal);
+  on('login-cancel', 'click', closeLoginModal);
+  $('login-modal')?.querySelector('[data-close="login-modal"]')?.addEventListener('click', closeLoginModal);
+
+  on('login-form', 'submit', async e => {
     e.preventDefault();
-    await handleLogin($('gate-email').value.trim(), $('gate-password').value, $('gate-login-error'));
+    const ok = await handleLogin($('login-email').value.trim(), $('login-password').value, $('login-error'));
+    if (ok) closeLoginModal();
   });
 
   on('btn-logout', 'click', async () => {
@@ -666,7 +695,7 @@ async function handleLogin(email, password, errorEl) {
   if (errorEl) errorEl.classList.add('hidden');
   try {
     await auth.signInWithEmailAndPassword(email, password);
-    showToast('✓ Login berhasil!');
+    showToast('✓ Login admin berhasil!');
     return true;
   } catch {
     if (errorEl) {
@@ -692,12 +721,11 @@ function openEditModal(id) {
 
 function initLocalDev() {
   useFirebase = false;
-  isLoggedIn = true;
+  isAdmin = true;
   try { allData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { allData = []; }
-  showApp();
-  $('user-email').textContent = 'Mode lokal (dev)';
-  $('setup-banner').classList.remove('hidden');
+  $('setup-banner')?.classList.remove('hidden');
   hideLoading();
+  updateAdminUI();
   renderAll();
 }
 
@@ -709,11 +737,11 @@ function initFirebase() {
   db = firebase.firestore();
   useFirebase = true;
 
-  // Cadangan: spinner max 5 detik, jangan muter selamanya
   setTimeout(hideLoading, 5000);
 
   auth.onAuthStateChanged(onAuthChange);
-  showAuthGate();
+  subscribeData();
+  updateAdminUI();
   hideLoading();
 }
 

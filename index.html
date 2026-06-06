@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=3" />
+  <link rel="stylesheet" href="style.css?v=4" />
   <script>
     tailwind.config = {
       theme: {
@@ -40,38 +40,12 @@
     <div class="grid-overlay absolute inset-0 opacity-[0.03]"></div>
   </div>
 
-  <!-- Auth Gate (wajib login) -->
-  <div id="auth-gate" class="auth-gate hidden">
-    <div class="auth-gate-card">
-      <div class="logo-badge w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4">
-        <span class="font-display text-3xl text-cyan-400 tracking-wider">NM</span>
-      </div>
-      <h1 class="font-display text-4xl tracking-[0.15em] text-center leading-none mb-1">
-        NO <span class="text-blue-500">MERCY</span>
-      </h1>
-      <p class="text-mercy-muted text-sm text-center uppercase tracking-widest mb-8">Area Terbatas — Login Diperlukan</p>
-      <form id="gate-login-form" class="space-y-4">
-        <div>
-          <label for="gate-email" class="form-label">Email</label>
-          <input type="email" id="gate-email" required class="form-input" placeholder="email@admin.com" autocomplete="username" />
-        </div>
-        <div>
-          <label for="gate-password" class="form-label">Password</label>
-          <input type="password" id="gate-password" required class="form-input" placeholder="••••••••" autocomplete="current-password" />
-        </div>
-        <p id="gate-login-error" class="text-cyan-300 text-sm hidden"></p>
-        <button type="submit" class="submit-btn w-full py-3 rounded-xl font-display text-xl tracking-widest uppercase">Masuk</button>
-      </form>
-      <p class="text-mercy-muted text-xs text-center mt-6">Hanya anggota dengan akun resmi yang bisa mengakses</p>
-    </div>
-  </div>
-
-  <!-- App (setelah login) -->
-  <div id="app-shell" class="hidden">
+  <!-- App -->
+  <div id="app-shell">
 
     <header class="relative z-10 border-b border-mercy-border/50 backdrop-blur-md bg-mercy-dark/60">
       <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-4">
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-3">
           <div class="flex items-center gap-3">
             <div class="logo-badge w-11 h-11 rounded-lg flex items-center justify-center">
               <span class="font-display text-xl text-cyan-400 tracking-wider">NM</span>
@@ -80,20 +54,32 @@
               <h1 class="font-display text-2xl md:text-3xl tracking-[0.12em] text-white leading-none">
                 NO <span class="text-blue-500">MERCY</span>
               </h1>
-              <p id="user-email" class="text-mercy-muted text-xs mt-0.5 truncate max-w-[180px] sm:max-w-xs"></p>
+              <p class="text-mercy-muted text-xs tracking-widest uppercase mt-0.5">GTA Roleplay — Setoran Geng</p>
             </div>
           </div>
-          <button id="btn-logout" class="auth-btn auth-btn-outline">Logout</button>
+          <div id="auth-area" class="flex items-center gap-2 shrink-0">
+            <span id="admin-badge" class="admin-badge hidden">Admin</span>
+            <button id="btn-login" class="auth-btn">Login Admin</button>
+            <button id="btn-logout" class="auth-btn auth-btn-outline hidden">Logout</button>
+          </div>
         </div>
         <nav class="nav-tabs flex flex-wrap gap-1 bg-black/40 rounded-xl p-1 border border-mercy-border/50">
           <button class="tab-btn active" data-tab="setoran">Setoran</button>
           <button class="tab-btn" data-tab="laporan">Laporan</button>
           <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
           <button class="tab-btn" data-tab="log">Log</button>
-          <button class="tab-btn" data-tab="pengaturan">Pengaturan</button>
+          <button id="tab-pengaturan" class="tab-btn hidden" data-tab="pengaturan">Pengaturan</button>
         </nav>
       </div>
     </header>
+
+    <div id="mode-banner" class="relative z-10 border-b border-mercy-border/30 bg-mercy-card/40">
+      <div class="max-w-6xl mx-auto px-4 py-2 text-sm">
+        <p id="mode-text" class="text-mercy-muted">
+          <span class="text-blue-400">●</span> Mode lihat — login admin untuk input & edit
+        </p>
+      </div>
+    </div>
 
     <div id="setup-banner" class="hidden relative z-20 border-b border-blue-500/30 bg-blue-950/50">
       <div class="max-w-6xl mx-auto px-4 py-2 text-sm text-blue-200/90">
@@ -112,7 +98,8 @@
 
       <!-- TAB: Setoran -->
       <div id="panel-setoran" class="panel grid lg:grid-cols-5 gap-6">
-        <section class="lg:col-span-2">
+        <!-- Form admin -->
+        <section id="admin-form-section" class="lg:col-span-2 hidden">
           <div class="form-panel rounded-2xl p-6 md:p-7">
             <div class="flex items-center gap-3 mb-5">
               <div class="w-1 h-8 accent-bar rounded-full"></div>
@@ -158,7 +145,18 @@
             </form>
           </div>
         </section>
-        <section class="lg:col-span-3">
+        <!-- Info viewer -->
+        <section id="viewer-info" class="lg:col-span-2">
+          <div class="form-panel rounded-2xl p-6 md:p-7 flex flex-col items-center justify-center text-center min-h-[280px]">
+            <div class="text-5xl mb-4 opacity-40">👁️</div>
+            <h2 class="font-display text-2xl tracking-wider mb-2">MODE LIHAT</h2>
+            <p class="text-mercy-muted text-sm max-w-xs mb-6">
+              Kamu bisa lihat riwayat, laporan & leaderboard. Login admin untuk input, edit, atau hapus setoran.
+            </p>
+            <button id="btn-login-viewer" type="button" class="auth-btn">Login Admin</button>
+          </div>
+        </section>
+        <section id="list-section" class="lg:col-span-3">
           <div class="list-panel rounded-2xl p-6 md:p-7">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
               <div class="flex items-center gap-3"><div class="w-1 h-8 accent-bar rounded-full"></div><h2 class="font-display text-2xl tracking-wider">RIWAYAT</h2></div>
@@ -257,9 +255,9 @@
         </div>
       </div>
 
-      <!-- TAB: Pengaturan -->
+      <!-- TAB: Pengaturan (admin only) -->
       <div id="panel-pengaturan" class="panel hidden">
-        <div class="form-panel rounded-2xl p-6 md:p-7 max-w-xl">
+        <div id="settings-admin" class="form-panel rounded-2xl p-6 md:p-7 max-w-xl">
           <div class="flex items-center gap-3 mb-6"><div class="w-1 h-8 accent-bar rounded-full"></div><h2 class="font-display text-2xl tracking-wider">PENGATURAN</h2></div>
           <form id="settings-form" class="space-y-5">
             <div>
@@ -293,6 +291,24 @@
 
   <div id="loading" class="loading-overlay"><div class="loading-spinner"></div><p class="text-mercy-muted text-sm uppercase tracking-wider">Memuat...</p></div>
   <div id="toast" class="toast hidden"><span id="toast-msg"></span></div>
+
+  <!-- Login modal -->
+  <div id="login-modal" class="modal hidden">
+    <div class="modal-backdrop" data-close="login-modal"></div>
+    <div class="modal-content">
+      <h3 class="font-display text-2xl tracking-wider mb-1">Login Admin</h3>
+      <p class="text-mercy-muted text-sm mb-6">Hanya admin yang bisa input, edit & hapus setoran</p>
+      <form id="login-form" class="space-y-4">
+        <div><label for="login-email" class="form-label">Email</label><input type="email" id="login-email" required class="form-input" autocomplete="username" /></div>
+        <div><label for="login-password" class="form-label">Password</label><input type="password" id="login-password" required class="form-input" autocomplete="current-password" /></div>
+        <p id="login-error" class="text-cyan-300 text-sm hidden"></p>
+        <div class="flex gap-3 pt-2">
+          <button type="button" id="login-cancel" class="flex-1 py-2.5 rounded-lg border border-mercy-border text-sm uppercase tracking-wider hover:bg-white/5">Batal</button>
+          <button type="submit" class="flex-1 py-2.5 rounded-lg btn-primary text-sm uppercase tracking-wider text-white">Masuk</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- Edit modal -->
   <div id="edit-modal" class="modal hidden">
@@ -347,10 +363,10 @@
     </div>
   </div>
 
-  <script src="firebase-config.js?v=3"></script>
+  <script src="firebase-config.js?v=4"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
