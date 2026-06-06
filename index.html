@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>No Mercy — Setoran Geng</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['"Bebas Neue"', 'sans-serif'],
+            body: ['Rajdhani', 'sans-serif'],
+          },
+          colors: {
+            mercy: {
+              red: '#dc2626',
+              dark: '#0a0a0a',
+              card: '#141414',
+              border: '#2a2a2a',
+              muted: '#737373',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="font-body bg-mercy-dark text-white min-h-screen antialiased">
+
+  <!-- Background effects -->
+  <div class="fixed inset-0 pointer-events-none overflow-hidden">
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-red-600/10 blur-[120px] rounded-full"></div>
+    <div class="absolute bottom-0 right-0 w-[500px] h-[500px] bg-red-900/5 blur-[100px] rounded-full"></div>
+    <div class="grid-overlay absolute inset-0 opacity-[0.03]"></div>
+  </div>
+
+  <!-- Header -->
+  <header class="relative z-10 border-b border-mercy-border/50 backdrop-blur-md bg-black/40">
+    <div class="max-w-6xl mx-auto px-4 py-5 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <div class="logo-badge w-12 h-12 rounded-lg flex items-center justify-center">
+          <span class="font-display text-2xl text-red-500 tracking-wider">NM</span>
+        </div>
+        <div>
+          <h1 class="font-display text-3xl md:text-4xl tracking-[0.15em] text-white leading-none">
+            NO <span class="text-red-500">MERCY</span>
+          </h1>
+          <p class="text-mercy-muted text-sm tracking-widest uppercase mt-0.5">GTA Roleplay — Setoran Geng</p>
+        </div>
+      </div>
+      <div class="flex flex-col sm:flex-row items-end sm:items-center gap-3">
+        <nav class="flex items-center gap-1 bg-black/40 rounded-xl p-1 border border-mercy-border/50">
+          <button id="tab-setoran" class="tab-btn active" data-tab="setoran">Setoran</button>
+          <button id="tab-laporan" class="tab-btn" data-tab="laporan">Laporan Mingguan</button>
+        </nav>
+        <div id="auth-area" class="flex items-center gap-2">
+          <span id="admin-badge" class="admin-badge hidden">Admin</span>
+          <button id="btn-login" class="auth-btn">Login Admin</button>
+          <button id="btn-logout" class="auth-btn auth-btn-outline hidden">Logout</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Loading -->
+  <div id="loading" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p class="text-mercy-muted text-sm uppercase tracking-wider">Memuat data...</p>
+  </div>
+
+  <!-- Setup Firebase (muncul jika config belum diisi) -->
+  <div id="setup-banner" class="hidden relative z-20 border-b border-yellow-600/30 bg-yellow-950/40">
+    <div class="max-w-6xl mx-auto px-4 py-3 text-sm text-yellow-200/90">
+      <strong>Firebase belum di-setup.</strong> Isi <code class="text-yellow-100">firebase-config.js</code> agar data online & shared.
+      Lihat langkah di file tersebut → push ke GitHub → selesai.
+    </div>
+  </div>
+
+  <!-- Banner mode -->
+  <div id="mode-banner" class="relative z-10 border-b border-mercy-border/30 bg-black/30">
+    <div class="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between gap-3 text-sm">
+      <p id="mode-text" class="text-mercy-muted">
+        <span class="text-blue-400">●</span> Mode lihat — data shared online, hanya admin bisa edit
+      </p>
+      <p id="firebase-status" class="text-xs text-mercy-muted hidden"></p>
+    </div>
+  </div>
+
+  <main class="relative z-10 max-w-6xl mx-auto px-4 py-8 space-y-8">
+
+    <!-- Stats -->
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-4" id="stats">
+      <div class="stat-card">
+        <p class="text-mercy-muted text-xs uppercase tracking-wider">Total Setoran</p>
+        <p class="font-display text-3xl text-white mt-1" id="stat-total">0</p>
+      </div>
+      <div class="stat-card">
+        <p class="text-mercy-muted text-xs uppercase tracking-wider">Minggu Ini</p>
+        <p class="font-display text-3xl text-red-500 mt-1" id="stat-week">0</p>
+      </div>
+      <div class="stat-card">
+        <p class="text-mercy-muted text-xs uppercase tracking-wider">Total Jumlah</p>
+        <p class="font-display text-3xl text-white mt-1" id="stat-amount">0</p>
+      </div>
+      <div class="stat-card">
+        <p class="text-mercy-muted text-xs uppercase tracking-wider">Anggota</p>
+        <p class="font-display text-3xl text-white mt-1" id="stat-members">0</p>
+      </div>
+    </section>
+
+    <!-- Tab: Setoran -->
+    <div id="panel-setoran" class="grid lg:grid-cols-5 gap-8">
+
+      <!-- Form (hanya admin) -->
+      <section id="admin-form-section" class="lg:col-span-2 hidden">
+        <div class="form-panel rounded-2xl p-6 md:p-8">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-1 h-8 bg-red-500 rounded-full"></div>
+            <h2 class="font-display text-2xl tracking-wider">INPUT SETORAN</h2>
+          </div>
+
+          <form id="setoran-form" class="space-y-5">
+            <div>
+              <label for="tanggal" class="form-label">Tanggal</label>
+              <input type="date" id="tanggal" name="tanggal" required class="form-input" />
+            </div>
+
+            <div>
+              <label for="nama" class="form-label">Nama</label>
+              <input type="text" id="nama" name="nama" placeholder="Masukkan nama anggota..." required class="form-input" />
+            </div>
+
+            <div>
+              <label for="barang" class="form-label">Nama Barang</label>
+              <select id="barang" name="barang" required class="form-input form-select">
+                <option value="" disabled selected>Pilih barang...</option>
+                <option value="Besi">⚙️ Besi</option>
+                <option value="Emas">🥇 Emas</option>
+                <option value="Tembaga">🔶 Tembaga</option>
+                <option value="Potongan Kayu">🪵 Potongan Kayu</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="form-label">Jumlah</label>
+              <div class="grid grid-cols-3 sm:grid-cols-5 gap-2" id="jumlah-group">
+                <button type="button" data-value="500" class="jumlah-btn">500</button>
+                <button type="button" data-value="1000" class="jumlah-btn">1K</button>
+                <button type="button" data-value="1500" class="jumlah-btn">1.5K</button>
+                <button type="button" data-value="2000" class="jumlah-btn">2K</button>
+                <button type="button" data-value="2500" class="jumlah-btn">2.5K</button>
+              </div>
+              <input type="hidden" id="jumlah" name="jumlah" required />
+            </div>
+
+            <div>
+              <label for="disetor" class="form-label">Disetor Ke</label>
+              <select id="disetor" name="disetor" required class="form-input form-select">
+                <option value="" disabled selected>Pilih penerima...</option>
+                <option value="Waalz">Waalz</option>
+                <option value="Ilham Rellow">Ilham Rellow</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="keterangan" class="form-label">Keterangan</label>
+              <select id="keterangan" name="keterangan" required class="form-input form-select">
+                <option value="" disabled selected>Pilih keterangan...</option>
+                <option value="Setoran Mingguan">Setoran Mingguan</option>
+                <option value="Setoran Sanksi">Setoran Sanksi</option>
+                <option value="Setoran Donasi">Setoran Donasi</option>
+                <option value="Donasi Sukarela">Donasi Sukarela</option>
+              </select>
+            </div>
+
+            <button type="submit" class="submit-btn w-full py-3.5 rounded-xl font-display text-xl tracking-widest uppercase transition-all">
+              Catat Setoran
+            </button>
+          </form>
+          <button id="btn-migrate" type="button" class="hidden w-full mt-4 py-2.5 rounded-lg border border-yellow-600/40 text-yellow-400 text-xs uppercase tracking-wider hover:bg-yellow-950/30 transition-colors">
+            ↑ Upload data lokal ke Firebase
+          </button>
+        </div>
+      </section>
+
+      <!-- Viewer info (non-admin) -->
+      <section id="viewer-info" class="lg:col-span-2">
+        <div class="form-panel rounded-2xl p-6 md:p-8 flex flex-col items-center justify-center text-center min-h-[280px]">
+          <div class="text-5xl mb-4 opacity-40">👁️</div>
+          <h2 class="font-display text-2xl tracking-wider mb-2">MODE LIHAT</h2>
+          <p class="text-mercy-muted text-sm max-w-xs">
+            Kamu bisa lihat riwayat & laporan mingguan. Untuk input atau hapus setoran, login sebagai admin.
+          </p>
+          <button id="btn-login-viewer" class="auth-btn mt-6">Login Admin</button>
+        </div>
+      </section>
+
+      <!-- List -->
+      <section id="list-section" class="lg:col-span-3">
+        <div class="list-panel rounded-2xl p-6 md:p-8">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div class="flex items-center gap-3">
+              <div class="w-1 h-8 bg-red-500 rounded-full"></div>
+              <h2 class="font-display text-2xl tracking-wider">RIWAYAT SETORAN</h2>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <input type="text" id="search" placeholder="Cari nama..." class="search-input" />
+              <select id="filter-keterangan" class="filter-select">
+                <option value="">Semua Keterangan</option>
+                <option value="Setoran Mingguan">Setoran Mingguan</option>
+                <option value="Setoran Sanksi">Setoran Sanksi</option>
+                <option value="Setoran Donasi">Setoran Donasi</option>
+                <option value="Donasi Sukarela">Donasi Sukarela</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="empty-state" class="empty-state hidden">
+            <div class="text-6xl mb-4 opacity-30">📦</div>
+            <p class="font-display text-xl tracking-wider text-mercy-muted">Belum ada setoran</p>
+            <p id="empty-hint" class="text-sm text-mercy-muted mt-1">Belum ada data setoran</p>
+          </div>
+
+          <div id="setoran-list" class="space-y-3 max-h-[600px] overflow-y-auto custom-scroll pr-1"></div>
+
+          <div class="flex items-center justify-between mt-6 pt-4 border-t border-mercy-border/50">
+            <p class="text-xs text-mercy-muted" id="list-count">0 setoran</p>
+            <button id="export-btn" class="text-xs text-red-400 hover:text-red-300 uppercase tracking-wider transition-colors">
+              Export CSV
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Tab: Laporan Mingguan -->
+    <section id="panel-laporan" class="hidden space-y-6">
+      <div class="list-panel rounded-2xl p-6 md:p-8">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div class="flex items-center gap-3">
+            <div class="w-1 h-8 bg-red-500 rounded-full"></div>
+            <div>
+              <h2 class="font-display text-2xl tracking-wider">LAPORAN MINGGUAN</h2>
+              <p class="text-mercy-muted text-sm mt-0.5" id="laporan-range">—</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="week-prev" class="week-nav-btn" title="Minggu sebelumnya">◀</button>
+            <button id="week-current" class="week-current-btn">Minggu Ini</button>
+            <button id="week-next" class="week-nav-btn" title="Minggu berikutnya">▶</button>
+            <button id="export-week-btn" class="export-week-btn">Export Minggu</button>
+          </div>
+        </div>
+
+        <!-- Week stats -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div class="week-stat">
+            <p class="text-mercy-muted text-xs uppercase tracking-wider">Total Setoran</p>
+            <p class="font-display text-2xl text-white mt-1" id="week-stat-count">0</p>
+          </div>
+          <div class="week-stat">
+            <p class="text-mercy-muted text-xs uppercase tracking-wider">Total Jumlah</p>
+            <p class="font-display text-2xl text-red-500 mt-1" id="week-stat-amount">0</p>
+          </div>
+          <div class="week-stat">
+            <p class="text-mercy-muted text-xs uppercase tracking-wider">Anggota Aktif</p>
+            <p class="font-display text-2xl text-white mt-1" id="week-stat-members">0</p>
+          </div>
+          <div class="week-stat">
+            <p class="text-mercy-muted text-xs uppercase tracking-wider">Setoran Mingguan</p>
+            <p class="font-display text-2xl text-green-400 mt-1" id="week-stat-mingguan">0</p>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-6 mb-8">
+          <!-- Per Anggota -->
+          <div class="report-block">
+            <h3 class="report-title">Rekap per Anggota</h3>
+            <div id="report-members" class="space-y-2"></div>
+            <p id="report-members-empty" class="report-empty hidden">Belum ada data minggu ini</p>
+          </div>
+
+          <!-- Per Barang -->
+          <div class="report-block">
+            <h3 class="report-title">Rekap per Barang</h3>
+            <div id="report-barang" class="space-y-2"></div>
+            <p id="report-barang-empty" class="report-empty hidden">Belum ada data minggu ini</p>
+          </div>
+
+          <!-- Per Keterangan -->
+          <div class="report-block">
+            <h3 class="report-title">Rekap per Keterangan</h3>
+            <div id="report-keterangan" class="space-y-2"></div>
+            <p id="report-keterangan-empty" class="report-empty hidden">Belum ada data minggu ini</p>
+          </div>
+
+          <!-- Per Penerima -->
+          <div class="report-block">
+            <h3 class="report-title">Rekap per Penerima</h3>
+            <div id="report-disetor" class="space-y-2"></div>
+            <p id="report-disetor-empty" class="report-empty hidden">Belum ada data minggu ini</p>
+          </div>
+        </div>
+
+        <!-- Detail table -->
+        <div class="report-block">
+          <h3 class="report-title mb-4">Detail Setoran Minggu Ini</h3>
+          <div class="overflow-x-auto custom-scroll">
+            <table class="report-table w-full">
+              <thead>
+                <tr>
+                  <th>Tanggal</th>
+                  <th>Nama</th>
+                  <th>Barang</th>
+                  <th>Jumlah</th>
+                  <th>Disetor Ke</th>
+                  <th>Keterangan</th>
+                </tr>
+              </thead>
+              <tbody id="report-table-body"></tbody>
+            </table>
+          </div>
+          <p id="report-table-empty" class="report-empty hidden mt-4">Tidak ada setoran pada minggu ini</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden">
+    <span id="toast-msg"></span>
+  </div>
+
+  <!-- Login modal -->
+  <div id="login-modal" class="modal hidden">
+    <div class="modal-backdrop" data-close="login-modal"></div>
+    <div class="modal-content">
+      <h3 class="font-display text-2xl tracking-wider mb-1">Login Admin</h3>
+      <p class="text-mercy-muted text-sm mb-6">Hanya admin yang bisa input & hapus setoran</p>
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label for="login-email" class="form-label">Email</label>
+          <input type="email" id="login-email" required class="form-input" placeholder="admin@email.com" autocomplete="username" />
+        </div>
+        <div>
+          <label for="login-password" class="form-label">Password</label>
+          <input type="password" id="login-password" required class="form-input" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <p id="login-error" class="text-red-400 text-sm hidden"></p>
+        <div class="flex gap-3 pt-2">
+          <button type="button" id="login-cancel" class="flex-1 py-2.5 rounded-lg border border-mercy-border text-sm uppercase tracking-wider hover:bg-white/5 transition-colors">Batal</button>
+          <button type="submit" class="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-sm uppercase tracking-wider transition-colors">Masuk</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete modal -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <h3 class="font-display text-2xl tracking-wider mb-2">Hapus Setoran?</h3>
+      <p class="text-mercy-muted text-sm mb-6">Data yang dihapus tidak bisa dikembalikan.</p>
+      <div class="flex gap-3">
+        <button id="modal-cancel" class="flex-1 py-2.5 rounded-lg border border-mercy-border text-sm uppercase tracking-wider hover:bg-white/5 transition-colors">Batal</button>
+        <button id="modal-confirm" class="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-sm uppercase tracking-wider transition-colors">Hapus</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="relative z-10 text-center py-8 text-mercy-muted text-xs uppercase tracking-widest">
+    No Mercy Gang &copy; 2026 — GTA Roleplay
+  </footer>
+
+  <script src="firebase-config.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
