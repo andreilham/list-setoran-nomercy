@@ -1,17 +1,30 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Semua orang bisa LIHAT (tanpa login)
-    // Hanya admin login yang bisa edit
+
     match /setoran/{docId} {
       allow read: if true;
-      allow create, update, delete: if request.auth != null;
+
+      // Admin
+      allow create, delete: if request.auth != null;
+
+      // Admin bisa edit semua
+      allow update: if request.auth != null
+
+      // Pengunjung hanya boleh ubah field catatan
+      || (
+        request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['catatan'])
+      );
     }
+
     match /activity_log/{docId} {
       allow read: if true;
       allow create: if request.auth != null;
       allow update, delete: if false;
     }
+
     match /settings/{docId} {
       allow read: if true;
       allow write: if request.auth != null;

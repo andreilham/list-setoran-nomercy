@@ -27,7 +27,6 @@ const $ = id => document.getElementById(id);
 function on(id, event, handler) {
   const el = $(id);
   if (el) el.addEventListener(event, handler);
-  else console.warn('[No Mercy] Elemen tidak ditemukan:', id);
 }
 
 function setVal(id, value) {
@@ -175,24 +174,15 @@ function subscribeData() {
     .catch(err => {
       console.error(err);
       setListLoading(false);
-      showToast('⚠ Gagal load setoran — cek Firestore Rules');
     });
 
-  unsubSetoran = db.collection('setoran').orderBy('tanggal', 'desc').onSnapshot(
-    applySetoran,
-    err => {
-      console.error(err);
-      setListLoading(false);
-      showToast('⚠ Gagal sync setoran');
-    }
-  );
+  unsubSetoran = db.collection('setoran').orderBy('tanggal', 'desc').onSnapshot(applySetoran);
 
   unsubLog = db.collection('activity_log').orderBy('createdAt', 'desc').limit(80).onSnapshot(
     snap => {
       activityLogs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderActivityLog();
-    },
-    err => console.warn('Log:', err)
+    }
   );
 
   unsubSettings = db.collection('settings').doc(SETTINGS_DOC).onSnapshot(
@@ -204,8 +194,7 @@ function subscribeData() {
         if ($('target-display')) $('target-display').textContent = formatNumber(settings.targetMingguan);
       }
       renderTargetProgress();
-    },
-    err => console.warn('Settings:', err)
+    }
   );
 }
 
@@ -231,7 +220,6 @@ async function logActivity(action, message, setoranId = null) {
       id: String(Date.now()), action, message, setoranId,
       userEmail: 'local@dev', createdAt: new Date(),
     });
-    if (activityLogs.length > 80) activityLogs.pop();
     renderActivityLog();
   }
 }
@@ -245,10 +233,10 @@ async function sendDiscord(title, color, fields) {
       mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        embeds: [{ title, color, fields, footer: { text: 'No Mercy — Setoran Geng' }, timestamp: new Date().toISOString() }],
+        embeds: [{ title, color, fields, footer: { text: 'No Mercy' }, timestamp: new Date().toISOString() }],
       }),
     });
-  } catch (e) { console.warn('Discord webhook:', e); }
+  } catch (e) { console.warn(e); }
 }
 
 function discordFields(s) {
@@ -256,10 +244,8 @@ function discordFields(s) {
     { name: 'Nama', value: s.nama, inline: true },
     { name: 'Barang', value: s.barang, inline: true },
     { name: 'Jumlah', value: formatNumber(s.jumlah), inline: true },
-    { name: 'Disetor Ke', value: s.disetor, inline: true },
     { name: 'Keterangan', value: s.keterangan, inline: true },
-    { name: 'Tanggal', value: s.tanggal, inline: true },
-    { name: 'Oleh', value: currentUser?.email || '—', inline: false },
+    { name: 'Catatan', value: s.catatan || '-', inline: false }
   ];
 }
 
@@ -277,7 +263,6 @@ async function addSetoran(entry) {
   } else {
     allData.push({ id: String(Date.now()), ...entry });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(allData));
-    await logActivity('CREATE', `Tambah setoran: ${setoranSummary(entry)}`);
     renderAll();
   }
 }
@@ -289,12 +274,10 @@ async function updateSetoran(id, entry) {
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     await logActivity('UPDATE', `Edit setoran: ${setoranSummary(entry)}`, id);
-    await sendDiscord('✏️ Setoran Diedit', 0x22d3ee, discordFields(entry));
   } else {
     const i = allData.findIndex(s => s.id === id);
     if (i >= 0) allData[i] = { id, ...entry };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(allData));
-    await logActivity('UPDATE', `Edit setoran: ${setoranSummary(entry)}`, id);
     renderAll();
   }
 }
@@ -303,14 +286,10 @@ async function removeSetoran(id) {
   const s = allData.find(x => x.id === id);
   if (useFirebase) {
     await db.collection('setoran').doc(id).delete();
-    if (s) {
-      await logActivity('DELETE', `Hapus setoran: ${setoranSummary(s)}`, id);
-      await sendDiscord('🗑️ Setoran Dihapus', 0xef4444, discordFields(s));
-    }
+    if (s) await logActivity('DELETE', `Hapus setoran: ${setoranSummary(s)}`, id);
   } else {
     allData = allData.filter(x => x.id !== id);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(allData));
-    if (s) await logActivity('DELETE', `Hapus setoran: ${setoranSummary(s)}`, id);
     renderAll();
   }
 }
@@ -341,11 +320,17 @@ function renderList() {
     const card = document.createElement('div');
     card.className = 'setoran-card';
     const canEdit = isAdmin || !useFirebase;
+    
+    // Fitur: Keterangan Admin hanya bisa diakses oleh Admin
+    const adminStatusHtml = isAdmin ? 
+      `<span class="ml-2 px-2 py-0.5 rounded text-[10px] bg-cyan-900/30 text-cyan-300 border border-cyan-500/30">ADMIN: ${s.status_admin || 'BELUM'}</span>` : '';
+
     card.innerHTML = `
-      <div>
+      <div class="flex-1">
         <div class="flex flex-wrap items-center gap-2 mb-1.5">
           <span class="font-display text-lg tracking-wide">${escapeHtml(s.nama)}</span>
           <span class="badge ${keteranganBadge[s.keterangan] || ''}">${escapeHtml(s.keterangan)}</span>
+          ${adminStatusHtml}
         </div>
         <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-mercy-muted">
           <span>${formatDate(s.tanggal)}</span>
@@ -353,10 +338,11 @@ function renderList() {
           <span class="text-cyan-400 font-semibold">${formatNumber(s.jumlah)}</span>
           <span>→ ${escapeHtml(s.disetor)}</span>
         </div>
+        ${s.catatan ? `<p class="text-xs italic text-mercy-muted mt-2 pl-2 border-l border-mercy-border">Note: "${escapeHtml(s.catatan)}"</p>` : ''}
       </div>
       ${canEdit ? `<div class="flex gap-1">
-        <button class="edit-btn" data-id="${s.id}" title="Edit">✎</button>
-        <button class="delete-btn" data-id="${s.id}" title="Hapus">✕</button>
+        <button class="edit-btn" data-id="${s.id}">✎</button>
+        <button class="delete-btn" data-id="${s.id}">✕</button>
       </div>` : ''}`;
     list.appendChild(card);
   });
@@ -387,81 +373,49 @@ function renderBarList(containerId, emptyId, items) {
     row.innerHTML = `
       <span class="report-row-label">${escapeHtml(item.name)}</span>
       <div class="report-row-bar-wrap"><div class="report-row-bar" style="width:${max ? item.total / max * 100 : 0}%"></div></div>
-      <span class="report-row-value">${formatNumber(item.total)}</span>
-      <span class="report-row-meta">${item.count}x</span>`;
+      <span class="report-row-value">${formatNumber(item.total)}</span>`;
     c.appendChild(row);
   });
 }
 
 function renderTargetProgress() {
   const target = settings.targetMingguan || 2000;
-  $('target-display').textContent = formatNumber(target);
-  const weekData = filterByWeek(getData(), selectedWeek)
-    .filter(s => s.keterangan === 'Setoran Mingguan');
-
+  const weekData = filterByWeek(getData(), selectedWeek).filter(s => s.keterangan === 'Setoran Mingguan');
   const byMember = {};
   weekData.forEach(s => {
     const k = s.nama.toLowerCase();
     if (!byMember[k]) byMember[k] = { name: s.nama, total: 0 };
     byMember[k].total += s.jumlah;
   });
-
   const members = Object.values(byMember).sort((a, b) => b.total - a.total);
   const list = $('target-list');
   list.innerHTML = '';
-
-  if (!members.length) {
-    $('target-empty').classList.remove('hidden');
-    return;
-  }
-  $('target-empty').classList.add('hidden');
-
   members.forEach(m => {
     const pct = Math.min(100, (m.total / target) * 100);
     const done = m.total >= target;
     const row = document.createElement('div');
     row.className = 'target-row';
     row.innerHTML = `
-      <div class="flex items-center justify-between mb-1">
-        <span class="font-semibold text-sm">${escapeHtml(m.name)}</span>
-        <span class="text-xs ${done ? 'text-cyan-400' : 'text-mercy-muted'}">${formatNumber(m.total)} / ${formatNumber(target)} ${done ? '✓' : ''}</span>
-      </div>
+      <div class="flex justify-between mb-1 text-xs"><span>${escapeHtml(m.name)}</span><span>${formatNumber(m.total)} / ${formatNumber(target)}</span></div>
       <div class="target-bar-wrap"><div class="target-bar ${done ? 'target-bar-done' : ''}" style="width:${pct}%"></div></div>`;
     list.appendChild(row);
   });
+}
+
+function renderAll() {
+  renderList();
+  renderWeeklyReport();
+  renderLeaderboard();
+  renderActivityLog();
 }
 
 function renderWeeklyReport() {
   const weekData = filterByWeek(getData(), selectedWeek);
   const { start, end } = getWeekBounds(selectedWeek);
   $('laporan-range').textContent = formatWeekRange(start, end);
-  $('week-stat-count').textContent = weekData.length;
-  $('week-stat-amount').textContent = formatNumber(weekData.reduce((s, r) => s + r.jumlah, 0));
-  $('week-stat-members').textContent = new Set(weekData.map(s => s.nama.toLowerCase())).size;
-  $('week-stat-mingguan').textContent = weekData.filter(s => s.keterangan === 'Setoran Mingguan').length;
-
   renderBarList('report-members', 'report-members-empty', groupSum(weekData, 'nama'));
   renderBarList('report-barang', 'report-barang-empty', groupSum(weekData, 'barang'));
   renderTargetProgress();
-
-  const tbody = $('report-table-body');
-  tbody.innerHTML = '';
-  const sorted = [...weekData].sort((a, b) => parseDate(b.tanggal) - parseDate(a.tanggal));
-  $('report-table-empty').classList.toggle('hidden', sorted.length > 0);
-  sorted.forEach(s => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${formatDate(s.tanggal)}</td><td class="font-semibold">${escapeHtml(s.nama)}</td>
-      <td>${barangIcons[s.barang] || ''} ${escapeHtml(s.barang)}</td>
-      <td class="amount">${formatNumber(s.jumlah)}</td>
-      <td>${escapeHtml(s.disetor)}</td>
-      <td><span class="badge ${keteranganBadge[s.keterangan] || ''}">${escapeHtml(s.keterangan)}</span></td>`;
-    tbody.appendChild(tr);
-  });
-
-  const cur = getWeekKey(selectedWeek) === getWeekKey(new Date());
-  $('week-current').classList.toggle('ring-1', cur);
-  $('week-current').classList.toggle('ring-blue-500/50', cur);
 }
 
 function renderLeaderboard() {
@@ -477,19 +431,10 @@ function renderLeaderboard() {
   const ranked = Object.values(map).sort((a, b) => b.total - a.total);
   const list = $('leaderboard-list');
   list.innerHTML = '';
-
-  if (!ranked.length) { $('leaderboard-empty').classList.remove('hidden'); return; }
-  $('leaderboard-empty').classList.add('hidden');
-
-  const medals = ['🥇', '🥈', '🥉'];
   ranked.forEach((m, i) => {
     const row = document.createElement('div');
     row.className = 'leaderboard-row';
-    row.innerHTML = `
-      <span class="leaderboard-rank">${medals[i] || `#${i + 1}`}</span>
-      <span class="leaderboard-name">${escapeHtml(m.name)}</span>
-      <span class="leaderboard-meta">${m.count}x setoran</span>
-      <span class="leaderboard-total">${formatNumber(m.total)}</span>`;
+    row.innerHTML = `<span class="leaderboard-rank">#${i + 1}</span><span class="leaderboard-name">${escapeHtml(m.name)}</span><span class="leaderboard-total">${formatNumber(m.total)}</span>`;
     list.appendChild(row);
   });
 }
@@ -497,29 +442,12 @@ function renderLeaderboard() {
 function renderActivityLog() {
   const list = $('activity-log');
   list.innerHTML = '';
-  if (!activityLogs.length) { $('activity-empty').classList.remove('hidden'); return; }
-  $('activity-empty').classList.add('hidden');
-
   activityLogs.forEach(log => {
     const row = document.createElement('div');
     row.className = 'log-row';
-    row.innerHTML = `
-      <span class="log-icon">${logIcons[log.action] || '•'}</span>
-      <div class="flex-1 min-w-0">
-        <p class="text-sm text-white">${escapeHtml(log.message)}</p>
-        <p class="text-xs text-mercy-muted mt-0.5">${escapeHtml(log.userEmail)} · ${formatDateTime(log.createdAt)}</p>
-      </div>
-      <span class="log-badge log-${(log.action || '').toLowerCase()}">${log.action}</span>`;
+    row.innerHTML = `<div class="text-sm"><strong>${log.action}</strong>: ${escapeHtml(log.message)}</div><div class="text-xs text-mercy-muted">${formatDateTime(log.createdAt)}</div>`;
     list.appendChild(row);
   });
-}
-
-function renderAll() {
-  renderList();
-  const active = document.querySelector('.tab-btn.active')?.dataset.tab;
-  if (active === 'laporan') renderWeeklyReport();
-  if (active === 'leaderboard') renderLeaderboard();
-  if (active === 'log') renderActivityLog();
 }
 
 // ─── Tabs & Events ─────────────────────────────────────────────
@@ -530,16 +458,9 @@ function bindEvents() {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
-      const panel = $(`panel-${btn.dataset.tab}`);
-      if (panel) panel.classList.remove('hidden');
-      if (btn.dataset.tab === 'laporan') renderWeeklyReport();
-      if (btn.dataset.tab === 'leaderboard') renderLeaderboard();
-      if (btn.dataset.tab === 'log') renderActivityLog();
+      $(`panel-${btn.dataset.tab}`)?.classList.remove('hidden');
     });
   });
-
-  const tanggal = $('tanggal');
-  if (tanggal) tanggal.valueAsDate = new Date();
 
   document.querySelectorAll('.jumlah-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -551,8 +472,6 @@ function bindEvents() {
 
   on('setoran-form', 'submit', async e => {
     e.preventDefault();
-    if (useFirebase && !isAdmin) { showToast('⚠ Login admin dulu'); openLoginModal(); return; }
-    if (!$('jumlah')?.value) { showToast('⚠ Pilih jumlah dulu!'); return; }
     const entry = {
       tanggal: $('tanggal').value,
       nama: $('nama').value.trim(),
@@ -560,23 +479,21 @@ function bindEvents() {
       jumlah: Number($('jumlah').value),
       disetor: $('disetor').value,
       keterangan: $('keterangan').value,
+      catatan: $('catatan').value.trim(), // Data Catatan Manual
+      status_admin: isAdmin ? $('status_admin').value : 'BELUM' // Data Khusus Admin
     };
     try {
       await addSetoran(entry);
       $('setoran-form').reset();
-      if ($('tanggal')) $('tanggal').valueAsDate = new Date();
-      setVal('jumlah', '');
-      document.querySelectorAll('.jumlah-btn').forEach(b => b.classList.remove('active'));
       showToast('✓ Setoran dicatat!');
-    } catch (err) { console.error(err); showToast('⚠ Gagal menyimpan'); }
+    } catch (err) { showToast('⚠ Gagal simpan'); }
   });
 
   on('setoran-list', 'click', e => {
-    if (!isAdmin && useFirebase) return;
     const edit = e.target.closest('.edit-btn');
     const del = e.target.closest('.delete-btn');
     if (edit) openEditModal(edit.dataset.id);
-    if (del) { deleteId = del.dataset.id; $('delete-modal')?.classList.remove('hidden'); }
+    if (del) { deleteId = del.dataset.id; $('delete-modal').classList.remove('hidden'); }
   });
 
   on('edit-form', 'submit', async e => {
@@ -589,121 +506,27 @@ function bindEvents() {
       jumlah: Number($('edit-jumlah').value),
       disetor: $('edit-disetor').value,
       keterangan: $('edit-keterangan').value,
+      catatan: $('edit-catatan').value.trim(),
+      status_admin: $('edit-status-admin').value // Admin bisa edit status
     };
-    try {
-      await updateSetoran(id, entry);
-      $('edit-modal')?.classList.add('hidden');
-      showToast('✓ Setoran diupdate!');
-    } catch (err) { console.error(err); showToast('⚠ Gagal update'); }
+    await updateSetoran(id, entry);
+    $('edit-modal').classList.add('hidden');
   });
-
-  on('edit-cancel', 'click', () => $('edit-modal')?.classList.add('hidden'));
-  $('edit-modal')?.querySelector('[data-close="edit-modal"]')?.addEventListener('click', () => $('edit-modal')?.classList.add('hidden'));
-
-  on('delete-cancel', 'click', () => { $('delete-modal')?.classList.add('hidden'); deleteId = null; });
-  $('delete-modal')?.querySelector('[data-close="delete-modal"]')?.addEventListener('click', () => { $('delete-modal')?.classList.add('hidden'); deleteId = null; });
 
   on('delete-confirm', 'click', async () => {
-    if (deleteId) {
-      try { await removeSetoran(deleteId); showToast('Setoran dihapus'); }
-      catch (err) { showToast('⚠ Gagal hapus'); }
-    }
-    $('delete-modal')?.classList.add('hidden');
-    deleteId = null;
-  });
-
-  on('settings-form', 'submit', async e => {
-    e.preventDefault();
-    if (!isAdmin) { showToast('⚠ Login admin dulu'); return; }
-    const targetMingguan = Number($('setting-target')?.value) || 2000;
-    const discordWebhook = $('setting-discord')?.value.trim() || '';
-    try {
-      if (useFirebase) {
-        await db.collection('settings').doc(SETTINGS_DOC).set({ targetMingguan, discordWebhook }, { merge: true });
-        await logActivity('SETTINGS', `Update pengaturan: target ${formatNumber(targetMingguan)}`);
-      } else {
-        settings = { targetMingguan, discordWebhook };
-      }
-      showToast('✓ Pengaturan disimpan!');
-    } catch (err) { console.error(err); showToast('⚠ Gagal simpan pengaturan'); }
-  });
-
-  on('search', 'input', renderList);
-  on('filter-keterangan', 'change', renderList);
-  on('leaderboard-period', 'change', renderLeaderboard);
-
-  on('export-btn', 'click', () => {
-    const data = getData();
-    if (!data.length) { showToast('⚠ Tidak ada data'); return; }
-    downloadCsv(
-      ['Tanggal', 'Nama', 'Barang', 'Jumlah', 'Disetor Ke', 'Keterangan'],
-      data.map(s => [s.tanggal, s.nama, s.barang, s.jumlah, s.disetor, s.keterangan]),
-      `setoran-no-mercy-${new Date().toISOString().slice(0, 10)}.csv`
-    );
-    showToast('✓ CSV didownload');
-  });
-
-  on('week-prev', 'click', () => {
-    selectedWeek = new Date(selectedWeek);
-    selectedWeek.setDate(selectedWeek.getDate() - 7);
-    renderWeeklyReport();
-  });
-  on('week-next', 'click', () => {
-    selectedWeek = new Date(selectedWeek);
-    selectedWeek.setDate(selectedWeek.getDate() + 7);
-    renderWeeklyReport();
-  });
-  on('week-current', 'click', () => { selectedWeek = new Date(); renderWeeklyReport(); });
-
-  on('export-week-btn', 'click', () => {
-    const weekData = filterByWeek(getData(), selectedWeek);
-    if (!weekData.length) { showToast('⚠ Kosong'); return; }
-    const { start } = getWeekBounds(selectedWeek);
-    downloadCsv(
-      ['Tanggal', 'Nama', 'Barang', 'Jumlah', 'Disetor Ke', 'Keterangan'],
-      weekData.sort((a, b) => parseDate(a.tanggal) - parseDate(b.tanggal)).map(s => [s.tanggal, s.nama, s.barang, s.jumlah, s.disetor, s.keterangan]),
-      `laporan-${start.toISOString().slice(0, 10)}.csv`
-    );
+    if (deleteId) await removeSetoran(deleteId);
+    $('delete-modal').classList.add('hidden');
   });
 
   on('btn-login', 'click', openLoginModal);
-  on('btn-login-viewer', 'click', openLoginModal);
-  on('login-cancel', 'click', closeLoginModal);
-  $('login-modal')?.querySelector('[data-close="login-modal"]')?.addEventListener('click', closeLoginModal);
-
+  on('btn-logout', 'click', () => auth.signOut());
   on('login-form', 'submit', async e => {
     e.preventDefault();
-    const ok = await handleLogin($('login-email').value.trim(), $('login-password').value, $('login-error'));
-    if (ok) closeLoginModal();
+    try {
+      await auth.signInWithEmailAndPassword($('login-email').value, $('login-password').value);
+      closeLoginModal();
+    } catch { $('login-error').classList.remove('hidden'); }
   });
-
-  on('btn-logout', 'click', async () => {
-    try { await auth.signOut(); showToast('Logout berhasil'); } catch { showToast('⚠ Gagal logout'); }
-  });
-}
-
-function downloadCsv(headers, rows, filename) {
-  const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-}
-
-async function handleLogin(email, password, errorEl) {
-  if (errorEl) errorEl.classList.add('hidden');
-  try {
-    await auth.signInWithEmailAndPassword(email, password);
-    showToast('✓ Login admin berhasil!');
-    return true;
-  } catch {
-    if (errorEl) {
-      errorEl.textContent = 'Email atau password salah';
-      errorEl.classList.remove('hidden');
-    }
-    return false;
-  }
 }
 
 function openEditModal(id) {
@@ -716,33 +539,19 @@ function openEditModal(id) {
   setVal('edit-jumlah', s.jumlah);
   setVal('edit-disetor', s.disetor);
   setVal('edit-keterangan', s.keterangan);
-  $('edit-modal')?.classList.remove('hidden');
-}
-
-function initLocalDev() {
-  useFirebase = false;
-  isAdmin = true;
-  try { allData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { allData = []; }
-  $('setup-banner')?.classList.remove('hidden');
-  hideLoading();
-  updateAdminUI();
-  renderAll();
+  setVal('edit-catatan', s.catatan || '');
+  setVal('edit-status-admin', s.status_admin || 'BELUM');
+  $('edit-modal').classList.remove('hidden');
 }
 
 function initFirebase() {
-  if (!isFirebaseConfigured()) { initLocalDev(); return; }
-
+  if (!isFirebaseConfigured()) return;
   firebase.initializeApp(firebaseConfig);
   auth = firebase.auth();
   db = firebase.firestore();
   useFirebase = true;
-
-  setTimeout(hideLoading, 5000);
-
   auth.onAuthStateChanged(onAuthChange);
   subscribeData();
-  updateAdminUI();
-  hideLoading();
 }
 
 bindEvents();

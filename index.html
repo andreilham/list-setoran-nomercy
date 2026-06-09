@@ -106,6 +106,10 @@
               <h2 class="font-display text-2xl tracking-wider">INPUT SETORAN</h2>
             </div>
             <form id="setoran-form" class="space-y-4">
+              <div>
+                <label for="catatan" class="form-label">Catatan (Manual - Bisa diakses semua)</label>
+                <input type="text" id="catatan" name="catatan" placeholder="Contoh: Titip temen, telat dikit..." class="form-input" />
+              </div>
               <div><label for="tanggal" class="form-label">Tanggal</label><input type="date" id="tanggal" name="tanggal" required class="form-input" /></div>
               <div><label for="nama" class="form-label">Nama</label><input type="text" id="nama" name="nama" placeholder="Nama anggota..." required class="form-input" /></div>
               <div><label for="barang" class="form-label">Nama Barang</label>
@@ -361,6 +365,17 @@
         <button id="delete-confirm" class="flex-1 py-2.5 rounded-lg btn-primary text-sm uppercase tracking-wider text-white">Hapus</button>
       </div>
     </div>
+  </div>
+
+
+  <!-- Khusus Admin-->
+  <div class="mt-4 p-4 bg-blue-900/30 border border-blue-500/30 rounded-xl">
+    <label for="status_admin" class="form-label text-cyan-400">Khusus Admin: Status</label>
+    <select id="status_admin" name="status_admin" class="form-input form-select border-cyan-500/50">
+      <option value="BELUM">🔴 BELUM</option>
+      <option value="DIBALIKIN">🟡 DIBALIKIN</option>
+      <option value="KOMA">🟢 KOMA</option>
+    </select>
   </div>
 
   <script src="firebase-config.js?v=4"></script>
