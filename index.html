@@ -65,11 +65,11 @@
         </div>
         <nav class="nav-tabs flex flex-wrap gap-1 bg-black/40 rounded-xl p-1 border border-mercy-border/50">
           <button class="tab-btn active" data-tab="catatan-wd">Catatan WD</button>
-          <button class="tab-btn" data-tab="setoran" data-admin-only="true">Setoran</button>
-          <button class="tab-btn" data-tab="laporan" data-admin-only="true">Laporan</button>
-          <button class="tab-btn" data-tab="leaderboard" data-admin-only="true">Leaderboard</button>
-          <button class="tab-btn" data-tab="log" data-admin-only="true">Log</button>
-          <button id="tab-pengaturan" class="tab-btn hidden" data-tab="pengaturan" data-admin-only="true">Pengaturan</button>
+          <button class="tab-btn" data-tab="setoran">Setoran</button>
+          <button class="tab-btn" data-tab="laporan">Laporan</button>
+          <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
+          <button class="tab-btn" data-tab="log">Log</button>
+          <button id="tab-pengaturan" class="tab-btn hidden" data-tab="pengaturan">Pengaturan</button>
         </nav>
       </div>
     </header>
@@ -77,7 +77,7 @@
     <div id="mode-banner" class="relative z-10 border-b border-mercy-border/30 bg-mercy-card/40">
       <div class="max-w-6xl mx-auto px-4 py-2 text-sm">
         <p id="mode-text" class="text-mercy-muted">
-          <span class="text-blue-400">●</span> Mode public — Isi catatan WD. Setoran & konfirmasi status wajib login admin
+          <span class="text-blue-400">●</span> Mode lihat — Semua bisa melihat setoran & laporan. Login admin untuk input/edit
         </p>
       </div>
     </div>
@@ -97,7 +97,7 @@
         <div class="stat-card"><p class="text-mercy-muted text-xs uppercase tracking-wider">Anggota</p><p class="font-display text-2xl md:text-3xl text-white mt-1" id="stat-members">0</p></div>
       </section>
 
-      <!-- TAB: Setoran (admin only) -->
+      <!-- TAB: Setoran (lihat semua, input admin) -->
       <div id="panel-setoran" class="panel hidden grid lg:grid-cols-5 gap-6">
         <!-- Form admin -->
         <section id="admin-form-section" class="lg:col-span-2"> <div class="form-panel rounded-2xl p-6 md:p-7">
@@ -166,7 +166,7 @@
             <div class="text-5xl mb-4 opacity-40">👁️</div>
             <h2 class="font-display text-2xl tracking-wider mb-2">MODE LIHAT</h2>
             <p class="text-mercy-muted text-sm max-w-xs mb-6">
-              Kamu bisa lihat riwayat, laporan & leaderboard. Login admin untuk input, edit, atau hapus setoran.
+              Riwayat setoran di sebelah kanan bisa dilihat semua orang. Login admin untuk input, edit, atau hapus.
             </p>
             <button id="btn-login-viewer" type="button" class="auth-btn">Login Admin</button>
           </div>
@@ -210,24 +210,8 @@
             <form id="wd-form" class="space-y-4">
               <div><label for="wd-tanggal" class="form-label">Tanggal</label><input type="date" id="wd-tanggal" name="tanggal" required class="form-input" /></div>
               <div><label for="wd-nama" class="form-label">Nama</label><input type="text" id="wd-nama" name="nama" placeholder="Nama anggota..." required class="form-input" /></div>
-              <div><label for="wd-barang" class="form-label">Nama Barang</label>
-                <select id="wd-barang" name="barang" required class="form-input form-select">
-                  <option value="" disabled selected>Pilih barang...</option>
-                  <option value="Besi">⚙️ Besi</option><option value="Emas">🥇 Emas</option>
-                  <option value="Tembaga">🔶 Tembaga</option><option value="Potongan Kayu">🪵 Potongan Kayu</option>
-                </select>
-              </div>
-              <div>
-                <label class="form-label">Jumlah</label>
-                <div class="grid grid-cols-3 sm:grid-cols-5 gap-2" id="wd-jumlah-group">
-                  <button type="button" data-value="500" class="jumlah-btn wd-jumlah-btn">500</button>
-                  <button type="button" data-value="1000" class="jumlah-btn wd-jumlah-btn">1K</button>
-                  <button type="button" data-value="1500" class="jumlah-btn wd-jumlah-btn">1.5K</button>
-                  <button type="button" data-value="2000" class="jumlah-btn wd-jumlah-btn">2K</button>
-                  <button type="button" data-value="2500" class="jumlah-btn wd-jumlah-btn">2.5K</button>
-                </div>
-                <input type="hidden" id="wd-jumlah" name="jumlah" required />
-              </div>
+              <div><label for="wd-barang" class="form-label">Nama Barang</label><input type="text" id="wd-barang" name="barang" placeholder="Ketik nama barang..." required class="form-input" /></div>
+              <div><label for="wd-jumlah" class="form-label">Jumlah</label><input type="number" id="wd-jumlah" name="jumlah" min="1" step="1" placeholder="Ketik jumlah..." required class="form-input" /></div>
               <div>
                 <label for="wd-catatan" class="form-label">Catatan</label>
                 <input type="text" id="wd-catatan" name="catatan" placeholder="Keterangan WD..." class="form-input" />
@@ -250,12 +234,7 @@
               <div class="flex items-center gap-3"><div class="w-1 h-8 accent-bar rounded-full"></div><h2 class="font-display text-2xl tracking-wider">RIWAYAT WD</h2></div>
               <div class="flex flex-wrap gap-2">
                 <input type="text" id="wd-search" placeholder="Cari nama..." class="search-input" />
-                <select id="wd-filter-status" class="filter-select">
-                  <option value="">Semua Status</option>
-                  <option value="BELUM DI KEMBALIKAN">Belum DI Kembalikan</option>
-                  <option value="DI KEMBALIKAN">DI Kembalikan</option>
-                  <option value="KOMA">Koma</option>
-                </select>
+                <input type="text" id="wd-filter-status" placeholder="Cari status..." class="search-input" />
               </div>
             </div>
             <div id="wd-empty-state" class="empty-state hidden">
@@ -463,18 +442,8 @@
         <input type="hidden" id="edit-wd-id" />
         <div><label class="form-label">Tanggal</label><input type="date" id="edit-wd-tanggal" required class="form-input" /></div>
         <div><label class="form-label">Nama</label><input type="text" id="edit-wd-nama" required class="form-input" /></div>
-        <div><label class="form-label">Barang</label>
-          <select id="edit-wd-barang" required class="form-input form-select">
-            <option value="Besi">⚙️ Besi</option><option value="Emas">🥇 Emas</option>
-            <option value="Tembaga">🔶 Tembaga</option><option value="Potongan Kayu">🪵 Potongan Kayu</option>
-          </select>
-        </div>
-        <div><label class="form-label">Jumlah</label>
-          <select id="edit-wd-jumlah" required class="form-input form-select">
-            <option value="500">500</option><option value="1000">1.000</option><option value="1500">1.500</option>
-            <option value="2000">2.000</option><option value="2500">2.500</option>
-          </select>
-        </div>
+        <div><label class="form-label">Barang</label><input type="text" id="edit-wd-barang" required class="form-input" /></div>
+        <div><label class="form-label">Jumlah</label><input type="number" id="edit-wd-jumlah" min="1" step="1" required class="form-input" /></div>
         <div><label class="form-label">Catatan</label><input type="text" id="edit-wd-catatan" class="form-input" /></div>
         <div id="edit-wd-status-field">
           <label class="form-label text-cyan-400 font-bold">Status Konfirmasi (Khusus Admin)</label>
@@ -522,6 +491,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-  <script src="app.js?v=8"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>

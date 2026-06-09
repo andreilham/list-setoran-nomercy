@@ -1,7 +1,7 @@
 const STORAGE_KEY = 'nomercy_setoran';
 const WD_STORAGE_KEY = 'nomercy_catatan_wd';
 const SETTINGS_DOC = 'main';
-const ADMIN_TABS = ['setoran', 'laporan', 'leaderboard', 'log', 'pengaturan'];
+const SETTINGS_TAB = 'pengaturan';
 const PUBLIC_TAB = 'catatan-wd';
 
 let allData = [];
@@ -150,13 +150,9 @@ function getActiveTab() {
   return document.querySelector('.tab-btn.active')?.dataset.tab || PUBLIC_TAB;
 }
 
-function isAdminTab(tab) {
-  return ADMIN_TABS.includes(tab);
-}
-
 function switchTab(tab) {
-  if (isAdminTab(tab) && !isAdmin && useFirebase) {
-    showToast('⚠ Login admin diperlukan untuk mengakses tab ini');
+  if (tab === SETTINGS_TAB && !isAdmin && useFirebase) {
+    showToast('⚠ Login admin diperlukan untuk pengaturan');
     openLoginModal();
     return false;
   }
@@ -166,8 +162,9 @@ function switchTab(tab) {
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
   $(`panel-${tab}`)?.classList.remove('hidden');
-  $('stats')?.classList.toggle('hidden', tab !== 'setoran' || !isAdmin);
+  $('stats')?.classList.toggle('hidden', tab !== 'setoran');
 
+  if (tab === 'setoran') renderList();
   if (tab === 'laporan') renderWeeklyReport();
   if (tab === 'leaderboard') renderLeaderboard();
   if (tab === 'log') renderActivityLog();
@@ -175,19 +172,13 @@ function switchTab(tab) {
   return true;
 }
 
-function redirectFromAdminTabs() {
-  if (!isAdmin && isAdminTab(getActiveTab())) {
-    switchTab(PUBLIC_TAB);
-  }
-}
-
 // ─── Auth & UI ─────────────────────────────────────────────────
 
 function updateAdminUI() {
-  $('admin-form-section')?.classList.remove('hidden');
-  $('viewer-info')?.classList.add('hidden');
+  $('admin-form-section')?.classList.toggle('hidden', !isAdmin);
+  $('viewer-info')?.classList.toggle('hidden', isAdmin);
   const listSection = $('list-section');
-  if (listSection) listSection.className = 'lg:col-span-3';
+  if (listSection) listSection.className = isAdmin ? 'lg:col-span-3' : 'lg:col-span-5';
 
   $('admin-status-field')?.classList.toggle('hidden', !isAdmin);
   $('wd-admin-status-field')?.classList.toggle('hidden', !isAdmin);
@@ -197,20 +188,20 @@ function updateAdminUI() {
   $('btn-logout')?.classList.toggle('hidden', !isAdmin);
   $('admin-badge')?.classList.toggle('hidden', !isAdmin);
   $('tab-pengaturan')?.classList.toggle('hidden', !isAdmin);
-  $('stats')?.classList.toggle('hidden', !isAdmin || getActiveTab() !== 'setoran');
+  $('stats')?.classList.toggle('hidden', getActiveTab() !== 'setoran');
 
-  redirectFromAdminTabs();
+  if (!isAdmin && getActiveTab() === SETTINGS_TAB) switchTab(PUBLIC_TAB);
 
   const modeText = $('mode-text');
   if (modeText) {
     if (isAdmin) {
-      modeText.innerHTML = '<span class="text-cyan-400">●</span> Mode admin — Kelola setoran, konfirmasi WD, laporan & pengaturan';
+      modeText.innerHTML = '<span class="text-cyan-400">●</span> Mode admin — Input, edit, hapus data & pengaturan';
     } else {
-      modeText.innerHTML = '<span class="text-blue-400">●</span> Mode public — Isi catatan WD. Setoran & konfirmasi status wajib login admin';
+      modeText.innerHTML = '<span class="text-blue-400">●</span> Mode lihat — Semua bisa melihat setoran & laporan. Login admin untuk input/edit';
     }
   }
 
-  if (isAdmin) renderList();
+  renderList();
   renderWdList();
 }
 
@@ -254,46 +245,48 @@ function subscribeData() {
     }
   );
 
-  if (isAdmin) {
-    setListLoading(true);
-    const applySetoran = snap => {
-      allData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderAll();
-      setListLoading(false);
-    };
-
-    db.collection('setoran').orderBy('tanggal', 'desc').get()
-      .then(applySetoran)
-      .catch(err => {
-        console.error(err);
-        setListLoading(false);
-      });
-
-    unsubSetoran = db.collection('setoran').orderBy('tanggal', 'desc').onSnapshot(applySetoran);
-
-    unsubLog = db.collection('activity_log').orderBy('createdAt', 'desc').limit(80).onSnapshot(
-      snap => {
-        activityLogs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderActivityLog();
-      }
-    );
-
-    unsubSettings = db.collection('settings').doc(SETTINGS_DOC).onSnapshot(
-      snap => {
-        if (snap.exists) {
-          settings = { targetMingguan: 2000, discordWebhook: '', ...snap.data() };
-          if ($('setting-target')) $('setting-target').value = settings.targetMingguan;
-          if ($('setting-discord')) $('setting-discord').value = settings.discordWebhook || '';
-          if ($('target-display')) $('target-display').textContent = formatNumber(settings.targetMingguan);
-        }
-        renderTargetProgress();
-      }
-    );
-  } else {
-    allData = [];
-    activityLogs = [];
+  setListLoading(true);
+  const applySetoran = snap => {
+    allData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderAll();
     setListLoading(false);
-  }
+  };
+
+  db.collection('setoran').orderBy('tanggal', 'desc').get()
+    .then(applySetoran)
+    .catch(err => {
+      console.error(err);
+      setListLoading(false);
+    });
+
+  unsubSetoran = db.collection('setoran').orderBy('tanggal', 'desc').onSnapshot(
+    applySetoran,
+    err => {
+      console.error(err);
+      setListLoading(false);
+    }
+  );
+
+  unsubLog = db.collection('activity_log').orderBy('createdAt', 'desc').limit(80).onSnapshot(
+    snap => {
+      activityLogs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderActivityLog();
+    },
+    err => console.error(err)
+  );
+
+  unsubSettings = db.collection('settings').doc(SETTINGS_DOC).onSnapshot(
+    snap => {
+      if (snap.exists) {
+        settings = { targetMingguan: 2000, discordWebhook: '', ...snap.data() };
+        if (isAdmin && $('setting-target')) $('setting-target').value = settings.targetMingguan;
+        if (isAdmin && $('setting-discord')) $('setting-discord').value = settings.discordWebhook || '';
+        if ($('target-display')) $('target-display').textContent = formatNumber(settings.targetMingguan);
+      }
+      renderTargetProgress();
+    },
+    err => console.error(err)
+  );
 }
 
 function onAuthChange(user) {
@@ -303,7 +296,7 @@ function onAuthChange(user) {
   currentUser = user;
   subscribeData();
   updateAdminUI();
-  if (!isAdmin) switchTab(PUBLIC_TAB);
+  if (!isAdmin && getActiveTab() === SETTINGS_TAB) switchTab(PUBLIC_TAB);
 }
 
 // ─── Activity log & Discord ────────────────────────────────────
@@ -554,10 +547,12 @@ function renderTargetProgress() {
 
 function renderWdList() {
   const search = ($('wd-search')?.value || '').toLowerCase();
-  const filter = $('wd-filter-status')?.value || '';
-  const filtered = getWdData().filter(s =>
-    s.nama.toLowerCase().includes(search) && (!filter || s.statusKonfirmasi === filter)
-  ).sort((a, b) => parseDate(b.tanggal) - parseDate(a.tanggal));
+  const statusSearch = ($('wd-filter-status')?.value || '').toLowerCase();
+  const filtered = getWdData().filter(s => {
+    const status = (s.statusKonfirmasi || 'BELUM DI KEMBALIKAN').toLowerCase();
+    return s.nama.toLowerCase().includes(search)
+      && (!statusSearch || status.includes(statusSearch));
+  }).sort((a, b) => parseDate(b.tanggal) - parseDate(a.tanggal));
 
   const list = $('wd-list');
   if (!list) return;
@@ -698,14 +693,6 @@ function bindEvents() {
     });
   });
 
-  document.querySelectorAll('#wd-jumlah-group .wd-jumlah-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#wd-jumlah-group .wd-jumlah-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      setVal('wd-jumlah', btn.dataset.value);
-    });
-  });
-
   on('setoran-form', 'submit', async e => {
     e.preventDefault();
     if (!isAdmin && useFirebase) { showToast('⚠ Hanya admin yang bisa input setoran'); return; }
@@ -748,13 +735,14 @@ function bindEvents() {
 
   on('wd-form', 'submit', async e => {
     e.preventDefault();
-    if (!$('wd-jumlah')?.value) { showToast('⚠ Pilih jumlah dulu!'); return; }
+    const jumlah = Number($('wd-jumlah')?.value);
+    if (!jumlah || jumlah <= 0) { showToast('⚠ Isi jumlah yang valid!'); return; }
 
     const entry = {
       tanggal: $('wd-tanggal').value,
       nama: $('wd-nama').value.trim(),
-      barang: $('wd-barang').value,
-      jumlah: Number($('wd-jumlah').value),
+      barang: $('wd-barang').value.trim(),
+      jumlah,
       catatan: $('wd-catatan')?.value.trim() || '—',
       statusKonfirmasi: isAdmin ? $('wd-status').value : 'BELUM DI KEMBALIKAN'
     };
@@ -764,7 +752,6 @@ function bindEvents() {
       showToast('✓ Catatan WD berhasil dicatat!');
       $('wd-form').reset();
       if ($('wd-tanggal')) $('wd-tanggal').valueAsDate = new Date();
-      document.querySelectorAll('#wd-jumlah-group .wd-jumlah-btn').forEach(b => b.classList.remove('active'));
     } catch (err) {
       console.error(err);
       showToast('⚠ Gagal menyimpan catatan WD');
@@ -772,6 +759,7 @@ function bindEvents() {
   });
 
   on('setoran-list', 'click', e => {
+    if (!isAdmin && useFirebase) return;
     const edit = e.target.closest('.edit-btn');
     const del = e.target.closest('.delete-btn');
     if (edit) openEditModal(edit.dataset.id);
@@ -779,6 +767,7 @@ function bindEvents() {
   });
 
   on('wd-list', 'click', e => {
+    if (!isAdmin && useFirebase) return;
     const edit = e.target.closest('.edit-wd-btn');
     const del = e.target.closest('.delete-wd-btn');
     if (edit) openEditWdModal(edit.dataset.id);
@@ -787,6 +776,7 @@ function bindEvents() {
 
   on('edit-form', 'submit', async e => {
     e.preventDefault();
+    if (!isAdmin && useFirebase) { showToast('⚠ Hanya admin yang bisa edit setoran'); return; }
     const id = $('edit-id').value;
     const entry = {
       tanggal: $('edit-tanggal').value,
@@ -810,11 +800,13 @@ function bindEvents() {
     if (!isAdmin && useFirebase) { showToast('⚠ Hanya admin yang bisa edit catatan WD'); return; }
     const id = $('edit-wd-id').value;
     const existing = wdData.find(x => x.id === id);
+    const jumlah = Number($('edit-wd-jumlah').value);
+    if (!jumlah || jumlah <= 0) { showToast('⚠ Isi jumlah yang valid!'); return; }
     const entry = {
       tanggal: $('edit-wd-tanggal').value,
       nama: $('edit-wd-nama').value.trim(),
-      barang: $('edit-wd-barang').value,
-      jumlah: Number($('edit-wd-jumlah').value),
+      barang: $('edit-wd-barang').value.trim(),
+      jumlah,
       catatan: $('edit-wd-catatan').value.trim() || '—',
       statusKonfirmasi: isAdmin ? $('edit-wd-status').value : (existing?.statusKonfirmasi || 'BELUM DI KEMBALIKAN')
     };
@@ -831,6 +823,7 @@ function bindEvents() {
   on('delete-wd-cancel', 'click', () => { $('delete-wd-modal')?.classList.add('hidden'); deleteWdId = null; });
 
   on('delete-confirm', 'click', async () => {
+    if (!isAdmin && useFirebase) { showToast('⚠ Hanya admin yang bisa hapus setoran'); return; }
     if (deleteId) {
       try { await removeSetoran(deleteId); showToast('Setoran dihapus'); }
       catch (err) { console.error(err); showToast('⚠ Gagal hapus'); }
@@ -840,6 +833,7 @@ function bindEvents() {
   });
 
   on('delete-wd-confirm', 'click', async () => {
+    if (!isAdmin && useFirebase) { showToast('⚠ Hanya admin yang bisa hapus catatan WD'); return; }
     if (deleteWdId) {
       try { await removeWd(deleteWdId); showToast('Catatan WD dihapus'); }
       catch (err) { console.error(err); showToast('⚠ Gagal hapus'); }
@@ -890,7 +884,7 @@ function bindEvents() {
   on('search', 'input', renderList);
   on('filter-keterangan', 'change', renderList);
   on('wd-search', 'input', renderWdList);
-  on('wd-filter-status', 'change', renderWdList);
+  on('wd-filter-status', 'input', renderWdList);
   on('leaderboard-period', 'change', renderLeaderboard);
 
   on('settings-form', 'submit', async e => {
