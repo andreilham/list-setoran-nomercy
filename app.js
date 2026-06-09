@@ -186,7 +186,8 @@ function redirectFromAdminTabs() {
 function updateAdminUI() {
   $('admin-form-section')?.classList.remove('hidden');
   $('viewer-info')?.classList.add('hidden');
-  $('list-section')?.className = 'lg:col-span-3';
+  const listSection = $('list-section');
+  if (listSection) listSection.className = 'lg:col-span-3';
 
   $('admin-status-field')?.classList.toggle('hidden', !isAdmin);
   $('wd-admin-status-field')?.classList.toggle('hidden', !isAdmin);
