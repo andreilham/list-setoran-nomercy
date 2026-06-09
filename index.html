@@ -106,10 +106,6 @@
               <h2 class="font-display text-2xl tracking-wider">INPUT SETORAN</h2>
             </div>
             <form id="setoran-form" class="space-y-4">
-              <div>
-                <label for="catatan" class="form-label">Catatan (Manual - Bisa diakses semua)</label>
-                <input type="text" id="catatan" name="catatan" placeholder="Contoh: Titip temen, telat dikit..." class="form-input" />
-              </div>
               <div><label for="tanggal" class="form-label">Tanggal</label><input type="date" id="tanggal" name="tanggal" required class="form-input" /></div>
               <div><label for="nama" class="form-label">Nama</label><input type="text" id="nama" name="nama" placeholder="Nama anggota..." required class="form-input" /></div>
               <div><label for="barang" class="form-label">Nama Barang</label>
@@ -145,6 +141,23 @@
                   <option value="Donasi Sukarela">Donasi Sukarela</option>
                 </select>
               </div>
+              
+              <!-- TAMBAHAN FITUR: CATATAN MANUAL (Bisa diisi oleh semua orang) -->
+              <div>
+                <label for="catatan" class="form-label">Catatan (Bisa diisi manual / Semua orang)</label>
+                <input type="text" id="catatan" name="catatan" placeholder="Contoh: Titip temen, telat sejam..." class="form-input" />
+              </div>
+
+              <!-- TAMBAHAN FITUR: STATUS ADMIN (Hanya diakses Admin via form panel) -->
+              <div class="p-3 bg-cyan-950/40 border border-cyan-800/40 rounded-xl">
+                <label for="status_admin" class="form-label text-cyan-400 font-bold">Khusus Admin: Status</label>
+                <select id="status_admin" name="status_admin" class="form-input form-select border-cyan-700 bg-mercy-dark">
+                  <option value="BELUM">🔴 BELUM</option>
+                  <option value="DIBALIKIN">🟡 DIBALIKIN</option>
+                  <option value="KOMA">🟢 KOMA</option>
+                </select>
+              </div>
+
               <button type="submit" class="submit-btn w-full py-3 rounded-xl font-display text-xl tracking-widest uppercase">Catat Setoran</button>
             </form>
           </div>
@@ -346,6 +359,23 @@
             <option value="Setoran Donasi">Setoran Donasi</option><option value="Donasi Sukarela">Donasi Sukarela</option>
           </select>
         </div>
+
+        <!-- EDIT MODAL: FIELD CATATAN -->
+        <div>
+          <label class="form-label">Catatan</label>
+          <input type="text" id="edit-catatan" class="form-input" />
+        </div>
+
+        <!-- EDIT MODAL: FIELD STATUS KETERANGAN ADMIN -->
+        <div>
+          <label class="form-label text-cyan-400 font-bold">Keterangan Admin (Status)</label>
+          <select id="edit-status-admin" class="form-input form-select border-cyan-700 bg-mercy-dark">
+            <option value="BELUM">🔴 BELUM</option>
+            <option value="DIBALIKIN">🟡 DIBALIKIN</option>
+            <option value="KOMA">🟢 KOMA</option>
+          </select>
+        </div>
+
         <div class="flex gap-3 pt-2">
           <button type="button" id="edit-cancel" class="flex-1 py-2.5 rounded-lg border border-mercy-border text-sm uppercase tracking-wider hover:bg-white/5">Batal</button>
           <button type="submit" class="flex-1 py-2.5 rounded-lg btn-primary text-sm uppercase tracking-wider text-white">Simpan</button>
@@ -365,17 +395,6 @@
         <button id="delete-confirm" class="flex-1 py-2.5 rounded-lg btn-primary text-sm uppercase tracking-wider text-white">Hapus</button>
       </div>
     </div>
-  </div>
-
-
-  <!-- Khusus Admin-->
-  <div class="mt-4 p-4 bg-blue-900/30 border border-blue-500/30 rounded-xl">
-    <label for="status_admin" class="form-label text-cyan-400">Khusus Admin: Status</label>
-    <select id="status_admin" name="status_admin" class="form-input form-select border-cyan-500/50">
-      <option value="BELUM">🔴 BELUM</option>
-      <option value="DIBALIKIN">🟡 DIBALIKIN</option>
-      <option value="KOMA">🟢 KOMA</option>
-    </select>
   </div>
 
   <script src="firebase-config.js?v=4"></script>
