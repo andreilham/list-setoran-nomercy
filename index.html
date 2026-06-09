@@ -40,7 +40,7 @@
     <div class="grid-overlay absolute inset-0 opacity-[0.03]"></div>
   </div>
 
-  <!-- App Shell -->
+  <!-- App -->
   <div id="app-shell">
 
     <header class="relative z-10 border-b border-mercy-border/50 backdrop-blur-md bg-mercy-dark/60">
@@ -76,8 +76,14 @@
     <div id="mode-banner" class="relative z-10 border-b border-mercy-border/30 bg-mercy-card/40">
       <div class="max-w-6xl mx-auto px-4 py-2 text-sm">
         <p id="mode-text" class="text-mercy-muted">
-          <span class="text-blue-400">●</span> Mode Public — Siapa saja bisa input setoran & catatan.
+          <span class="text-blue-400">●</span> Mode lihat — login admin untuk input & edit
         </p>
+      </div>
+    </div>
+
+    <div id="setup-banner" class="hidden relative z-20 border-b border-blue-500/30 bg-blue-950/50">
+      <div class="max-w-6xl mx-auto px-4 py-2 text-sm text-blue-200/90">
+        <strong>Firebase belum di-setup.</strong> Isi <code class="text-cyan-300">firebase-config.js</code>
       </div>
     </div>
 
@@ -92,73 +98,78 @@
 
       <!-- TAB: Setoran -->
       <div id="panel-setoran" class="panel grid lg:grid-cols-5 gap-6">
-        
-        <!-- Form Input (Bisa diakses Semua Orang) -->
-        <section id="form-section" class="lg:col-span-2">
-          <div class="form-panel rounded-2xl p-6 md:p-7 bg-mercy-card border border-mercy-border/40">
-            <div class="flex items-center gap-3 mb-5">
-              <div class="w-1 h-8 accent-bar rounded-full"></div>
-              <h2 class="font-display text-2xl tracking-wider">INPUT SETORAN</h2>
+        <!-- Form admin -->
+        <section id="admin-form-section" class="lg:col-span-2"> <div class="form-panel rounded-2xl p-6 md:p-7">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-1 h-8 accent-bar rounded-full"></div>
+            <h2 class="font-display text-2xl tracking-wider">INPUT SETORAN</h2>
+          </div>
+          <form id="setoran-form" class="space-y-4">
+            <div><label for="tanggal" class="form-label">Tanggal</label><input type="date" id="tanggal" name="tanggal" required class="form-input" /></div>
+            <div><label for="nama" class="form-label">Nama</label><input type="text" id="nama" name="nama" placeholder="Nama anggota..." required class="form-input" /></div>
+            <div><label for="barang" class="form-label">Nama Barang</label>
+              <select id="barang" name="barang" required class="form-input form-select">
+                <option value="" disabled selected>Pilih barang...</option>
+                <option value="Besi">⚙️ Besi</option><option value="Emas">🥇 Emas</option>
+                <option value="Tembaga">🔶 Tembaga</option><option value="Potongan Kayu">🪵 Potongan Kayu</option>
+              </select>
             </div>
-            <form id="setoran-form" class="space-y-4">
-              <div><label for="tanggal" class="form-label">Tanggal</label><input type="date" id="tanggal" name="tanggal" required class="form-input" /></div>
-              <div><label for="nama" class="form-label">Nama</label><input type="text" id="nama" name="nama" placeholder="Nama anggota..." required class="form-input" /></div>
-              <div><label for="barang" class="form-label">Nama Barang</label>
-                <select id="barang" name="barang" required class="form-input form-select">
-                  <option value="" disabled selected>Pilih barang...</option>
-                  <option value="Besi">⚙️ Besi</option><option value="Emas">🥇 Emas</option>
-                  <option value="Tembaga">🔶 Tembaga</option><option value="Potongan Kayu">🪵 Potongan Kayu</option>
-                </select>
+            <div>
+              <label class="form-label">Jumlah</label>
+              <div class="grid grid-cols-3 sm:grid-cols-5 gap-2" id="jumlah-group">
+                <button type="button" data-value="500" class="jumlah-btn">500</button>
+                <button type="button" data-value="1000" class="jumlah-btn">1K</button>
+                <button type="button" data-value="1500" class="jumlah-btn">1.5K</button>
+                <button type="button" data-value="2000" class="jumlah-btn">2K</button>
+                <button type="button" data-value="2500" class="jumlah-btn">2.5K</button>
               </div>
-              <div>
-                <label class="form-label">Jumlah</label>
-                <div class="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-2" id="jumlah-group">
-                  <button type="button" data-value="500" class="jumlah-btn">500</button>
-                  <button type="button" data-value="1000" class="jumlah-btn">1K</button>
-                  <button type="button" data-value="1500" class="jumlah-btn">1.5K</button>
-                  <button type="button" data-value="2000" class="jumlah-btn">2K</button>
-                  <button type="button" data-value="2500" class="jumlah-btn">2.5K</button>
-                </div>
-                <input type="number" id="jumlah" name="jumlah" placeholder="Masukkan jumlah..." required class="form-input" />
-              </div>
-              <div><label for="disetor" class="form-label">Disetor Ke</label>
-                <select id="disetor" name="disetor" required class="form-input form-select">
-                  <option value="" disabled selected>Pilih penerima...</option>
-                  <option value="Waalz">Waalz</option><option value="Ilham Rellow">Ilham Rellow</option>
-                </select>
-              </div>
-              <div><label for="keterangan" class="form-label">Keterangan</label>
-                <select id="keterangan" name="keterangan" required class="form-input form-select">
-                  <option value="" disabled selected>Pilih keterangan...</option>
-                  <option value="Setoran Mingguan">Setoran Mingguan</option>
-                  <option value="Setoran Sanksi">Setoran Sanksi</option>
-                  <option value="Setoran Donasi">Setoran Donasi</option>
-                  <option value="Donasi Sukarela">Donasi Sukarela</option>
-                </select>
-              </div>
-              
-              <!-- Catatan Manual (Bisa diisi oleh semua orang) -->
-              <div>
-                <label for="catatan" class="form-label">Catatan</label>
-                <input type="text" id="catatan" name="catatan" placeholder="Contoh: Titip teman, sisa sanksi..." class="form-input" />
-              </div>
+              <input type="hidden" id="jumlah" name="jumlah" required />
+            </div>
+            <div><label for="disetor" class="form-label">Disetor Ke</label>
+              <select id="disetor" name="disetor" required class="form-input form-select">
+                <option value="" disabled selected>Pilih penerima...</option>
+                <option value="Waalz">Waalz</option><option value="Ilham Rellow">Ilham Rellow</option>
+              </select>
+            </div>
+            <div><label for="keterangan" class="form-label">Keterangan</label>
+              <select id="keterangan" name="keterangan" required class="form-input form-select">
+                <option value="" disabled selected>Pilih keterangan...</option>
+                <option value="Setoran Mingguan">Setoran Mingguan</option>
+                <option value="Setoran Sanksi">Setoran Sanksi</option>
+                <option value="Setoran Donasi">Setoran Donasi</option>
+                <option value="Donasi Sukarela">Donasi Sukarela</option>
+              </select>
+            </div>
 
-              <!-- KHUSUS ADMIN (Otomatis disembunyikan/ditampilkan via JavaScript) -->
-              <div id="admin-only-fields" class="p-3 bg-cyan-950/40 border border-cyan-800/40 rounded-xl hidden">
-                <label for="status_admin" class="form-label text-cyan-400 font-bold">Khusus Admin: Status</label>
-                <select id="status_admin" name="status_admin" class="form-input form-select border-cyan-700 bg-mercy-dark">
-                  <option value="BELUM">🔴 BELUM</option>
-                  <option value="DIBALIKIN">🟡 DIBALIKIN</option>
-                  <option value="KOMA">🟢 KOMA</option>
-                </select>
-              </div>
+            <div>
+              <label for="catatan" class="form-label">Catatan</label>
+              <input type="text" id="catatan" name="catatan" placeholder="Contoh: Sisa sanksi kemarin, dll..." class="form-input" />
+            </div>
 
-              <button type="submit" class="submit-btn w-full py-3 rounded-xl font-display text-xl tracking-widest uppercase">Kirim Setoran</button>
-            </form>
+            <div id="admin-status-field" class="hidden p-3 bg-cyan-950/40 border border-cyan-800/40 rounded-xl">
+              <label for="status_admin" class="form-label text-cyan-400 font-bold">Status Konfirmasi (Khusus Admin)</label>
+              <select id="status_admin" name="status_admin" class="form-input form-select bg-mercy-dark">
+                <option value="BELUM">🔴 BELUM</option>
+                <option value="DIBALIKIN">🟡 DIBALIKIN</option>
+                <option value="KOMA">🟢 KOMA</option>
+              </select>
+            </div>
+
+            <button type="submit" class="submit-btn w-full py-3 rounded-xl font-display text-xl tracking-widest uppercase">Catat Setoran</button>
+          </form>
+        </div>
+      </section>
+        <!-- Info viewer -->
+        <section id="viewer-info" class="lg:col-span-2">
+          <div class="form-panel rounded-2xl p-6 md:p-7 flex flex-col items-center justify-center text-center min-h-[280px]">
+            <div class="text-5xl mb-4 opacity-40">👁️</div>
+            <h2 class="font-display text-2xl tracking-wider mb-2">MODE LIHAT</h2>
+            <p class="text-mercy-muted text-sm max-w-xs mb-6">
+              Kamu bisa lihat riwayat, laporan & leaderboard. Login admin untuk input, edit, atau hapus setoran.
+            </p>
+            <button id="btn-login-viewer" type="button" class="auth-btn">Login Admin</button>
           </div>
         </section>
-
-        <!-- List Riwayat Setoran -->
         <section id="list-section" class="lg:col-span-3">
           <div class="list-panel rounded-2xl p-6 md:p-7">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
@@ -187,7 +198,6 @@
         </section>
       </div>
 
-      <!-- TAB LAINNYA -->
       <!-- TAB: Laporan -->
       <div id="panel-laporan" class="panel hidden space-y-6">
         <div class="list-panel rounded-2xl p-6 md:p-7">
@@ -209,6 +219,7 @@
             <div class="week-stat"><p class="text-mercy-muted text-xs uppercase">Anggota</p><p class="font-display text-2xl text-white mt-1" id="week-stat-members">0</p></div>
             <div class="week-stat"><p class="text-mercy-muted text-xs uppercase">Mingguan</p><p class="font-display text-2xl text-blue-400 mt-1" id="week-stat-mingguan">0</p></div>
           </div>
+          <!-- Target mingguan -->
           <div class="report-block mb-6">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
               <h3 class="report-title mb-0 border-0 pb-0">Target Setoran Mingguan</h3>
@@ -218,8 +229,18 @@
             <p id="target-empty" class="report-empty hidden">Belum ada setoran mingguan minggu ini</p>
           </div>
           <div class="grid md:grid-cols-2 gap-5 mb-6">
-            <div class="report-block"><h3 class="report-title">Rekap Anggota</h3><div id="report-members" class="space-y-2"></div></div>
-            <div class="report-block"><h3 class="report-title">Rekap Barang</h3><div id="report-barang" class="space-y-2"></div></div>
+            <div class="report-block"><h3 class="report-title">Rekap Anggota</h3><div id="report-members" class="space-y-2"></div><p id="report-members-empty" class="report-empty hidden">Kosong</p></div>
+            <div class="report-block"><h3 class="report-title">Rekap Barang</h3><div id="report-barang" class="space-y-2"></div><p id="report-barang-empty" class="report-empty hidden">Kosong</p></div>
+          </div>
+          <div class="report-block">
+            <h3 class="report-title mb-4">Detail Minggu Ini</h3>
+            <div class="overflow-x-auto custom-scroll">
+              <table class="report-table w-full">
+                <thead><tr><th>Tanggal</th><th>Nama</th><th>Barang</th><th>Jumlah</th><th>Ke</th><th>Ket.</th></tr></thead>
+                <tbody id="report-table-body"></tbody>
+              </table>
+            </div>
+            <p id="report-table-empty" class="report-empty hidden mt-4">Tidak ada data</p>
           </div>
         </div>
       </div>
@@ -227,10 +248,15 @@
       <!-- TAB: Leaderboard -->
       <div id="panel-leaderboard" class="panel hidden">
         <div class="list-panel rounded-2xl p-6 md:p-7">
-          <div class="flex items-center justify-between gap-4 mb-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div class="flex items-center gap-3"><div class="w-1 h-8 accent-bar rounded-full"></div><h2 class="font-display text-2xl tracking-wider">LEADERBOARD</h2></div>
+            <select id="leaderboard-period" class="filter-select">
+              <option value="week">Minggu Ini</option>
+              <option value="all">Sepanjang Waktu</option>
+            </select>
           </div>
           <div id="leaderboard-list" class="space-y-2"></div>
+          <p id="leaderboard-empty" class="report-empty hidden">Belum ada data</p>
         </div>
       </div>
 
@@ -239,24 +265,35 @@
         <div class="list-panel rounded-2xl p-6 md:p-7">
           <div class="flex items-center gap-3 mb-6"><div class="w-1 h-8 accent-bar rounded-full"></div><h2 class="font-display text-2xl tracking-wider">LOG AKTIVITAS</h2></div>
           <div id="activity-log" class="space-y-2 max-h-[600px] overflow-y-auto custom-scroll pr-1"></div>
+          <p id="activity-empty" class="report-empty hidden">Belum ada aktivitas</p>
         </div>
       </div>
 
-      <!-- TAB: Pengaturan -->
+      <!-- TAB: Pengaturan (admin only) -->
       <div id="panel-pengaturan" class="panel hidden">
         <div id="settings-admin" class="form-panel rounded-2xl p-6 md:p-7 max-w-xl">
           <div class="flex items-center gap-3 mb-6"><div class="w-1 h-8 accent-bar rounded-full"></div><h2 class="font-display text-2xl tracking-wider">PENGATURAN</h2></div>
           <form id="settings-form" class="space-y-5">
             <div>
-              <label for="setting-target" class="form-label">Target Setoran Mingguan</label>
-              <input type="number" id="setting-target" class="form-input" />
+              <label for="setting-target" class="form-label">Target Setoran Mingguan (jumlah min.)</label>
+              <input type="number" id="setting-target" min="500" step="500" value="2000" class="form-input" />
+              <p class="text-xs text-mercy-muted mt-1">Minimum total setoran mingguan per anggota</p>
             </div>
             <div>
               <label for="setting-discord" class="form-label">Discord Webhook URL</label>
-              <input type="url" id="setting-discord" class="form-input" />
+              <input type="url" id="setting-discord" class="form-input" placeholder="https://discord.com/api/webhooks/..." />
+              <p class="text-xs text-mercy-muted mt-1">Notifikasi otomatis ke channel Discord saat setoran ditambah/edit/hapus</p>
             </div>
-            <button type="submit" class="submit-btn w-full py-3 rounded-xl font-display text-lg tracking-widest uppercase">Simpan</button>
+            <button type="submit" class="submit-btn w-full py-3 rounded-xl font-display text-lg tracking-widest uppercase">Simpan Pengaturan</button>
           </form>
+          <div class="mt-6 p-4 rounded-xl bg-mercy-card border border-mercy-border text-sm text-mercy-muted">
+            <p class="font-semibold text-white mb-2">Cara buat Discord Webhook:</p>
+            <ol class="list-decimal list-inside space-y-1 text-xs">
+              <li>Buka channel Discord geng → Edit Channel</li>
+              <li>Integrations → Webhooks → New Webhook</li>
+              <li>Copy Webhook URL → paste di atas</li>
+            </ol>
+          </div>
         </div>
       </div>
     </main>
@@ -266,27 +303,28 @@
     </footer>
   </div>
 
-  <div id="loading" class="loading-overlay"><div class="loading-spinner"></div></div>
+  <div id="loading" class="loading-overlay"><div class="loading-spinner"></div><p class="text-mercy-muted text-sm uppercase tracking-wider">Memuat...</p></div>
   <div id="toast" class="toast hidden"><span id="toast-msg"></span></div>
 
-  <!-- Login Modal -->
+  <!-- Login modal -->
   <div id="login-modal" class="modal hidden">
     <div class="modal-backdrop" data-close="login-modal"></div>
     <div class="modal-content">
-      <h3 class="font-display text-2xl tracking-wider mb-6">Login Admin</h3>
+      <h3 class="font-display text-2xl tracking-wider mb-1">Login Admin</h3>
+      <p class="text-mercy-muted text-sm mb-6">Hanya admin yang bisa input, edit & hapus setoran</p>
       <form id="login-form" class="space-y-4">
-        <div><label for="login-email" class="form-label">Email</label><input type="email" id="login-email" required class="form-input" /></div>
-        <div><label for="login-password" class="form-label">Password</label><input type="password" id="login-password" required class="form-input" /></div>
-        <p id="login-error" class="text-cyan-300 text-sm hidden">Gagal Login</p>
+        <div><label for="login-email" class="form-label">Email</label><input type="email" id="login-email" required class="form-input" autocomplete="username" /></div>
+        <div><label for="login-password" class="form-label">Password</label><input type="password" id="login-password" required class="form-input" autocomplete="current-password" /></div>
+        <p id="login-error" class="text-cyan-300 text-sm hidden"></p>
         <div class="flex gap-3 pt-2">
-          <button type="button" id="login-cancel" class="flex-1 py-2.5 rounded-lg border border-mercy-border text-sm uppercase tracking-wider">Batal</button>
+          <button type="button" id="login-cancel" class="flex-1 py-2.5 rounded-lg border border-mercy-border text-sm uppercase tracking-wider hover:bg-white/5">Batal</button>
           <button type="submit" class="flex-1 py-2.5 rounded-lg btn-primary text-sm uppercase tracking-wider text-white">Masuk</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Edit Modal -->
+  <!-- Edit modal -->
   <div id="edit-modal" class="modal hidden">
     <div class="modal-backdrop" data-close="edit-modal"></div>
     <div class="modal-content modal-content-lg">
@@ -301,7 +339,12 @@
             <option value="Tembaga">🔶 Tembaga</option><option value="Potongan Kayu">🪵 Potongan Kayu</option>
           </select>
         </div>
-        <div><label class="form-label">Jumlah</label><input type="number" id="edit-jumlah" required class="form-input" /></div>
+        <div><label class="form-label">Jumlah</label>
+          <select id="edit-jumlah" required class="form-input form-select">
+            <option value="500">500</option><option value="1000">1.000</option><option value="1500">1.500</option>
+            <option value="2000">2.000</option><option value="2500">2.500</option>
+          </select>
+        </div>
         <div><label class="form-label">Disetor Ke</label>
           <select id="edit-disetor" required class="form-input form-select">
             <option value="Waalz">Waalz</option><option value="Ilham Rellow">Ilham Rellow</option>
@@ -313,12 +356,17 @@
             <option value="Setoran Donasi">Setoran Donasi</option><option value="Donasi Sukarela">Donasi Sukarela</option>
           </select>
         </div>
-        <div><label class="form-label">Catatan</label><input type="text" id="edit-catatan" class="form-input" /></div>
 
-        <!-- EDIT MODAL: STATUS ADMIN -->
+        <!-- EDIT MODAL: FIELD CATATAN -->
         <div>
-          <label class="form-label text-cyan-400 font-bold">Keterangan Admin (Status)</label>
-          <select id="edit-status-admin" class="form-input form-select border-cyan-700 bg-mercy-dark">
+          <label class="form-label">Catatan</label>
+          <input type="text" id="edit-catatan" class="form-input" />
+        </div>
+
+        <!-- EDIT MODAL: FIELD STATUS KETERANGAN ADMIN -->
+        <div>
+          <label class="form-label text-cyan-400 font-bold">Status Admin</label>
+          <select id="edit-status-admin" class="form-input form-select bg-mercy-dark">
             <option value="BELUM">🔴 BELUM</option>
             <option value="DIBALIKIN">🟡 DIBALIKIN</option>
             <option value="KOMA">🟢 KOMA</option>
@@ -326,21 +374,22 @@
         </div>
 
         <div class="flex gap-3 pt-2">
-          <button type="button" id="edit-cancel" class="flex-1 py-2.5 rounded-lg border border-mercy-border text-sm uppercase tracking-wider">Batal</button>
+          <button type="button" id="edit-cancel" class="flex-1 py-2.5 rounded-lg border border-mercy-border text-sm uppercase tracking-wider hover:bg-white/5">Batal</button>
           <button type="submit" class="flex-1 py-2.5 rounded-lg btn-primary text-sm uppercase tracking-wider text-white">Simpan</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Delete Modal -->
+  <!-- Delete modal -->
   <div id="delete-modal" class="modal hidden">
     <div class="modal-backdrop" data-close="delete-modal"></div>
     <div class="modal-content">
       <h3 class="font-display text-2xl tracking-wider mb-2">Hapus Setoran?</h3>
+      <p class="text-mercy-muted text-sm mb-6">Data yang dihapus tidak bisa dikembalikan.</p>
       <div class="flex gap-3">
-        <button id="delete-cancel" class="flex-1 py-2.5 rounded-lg border border-mercy-border text-sm">Batal</button>
-        <button id="delete-confirm" class="flex-1 py-2.5 rounded-lg btn-primary text-sm text-white">Hapus</button>
+        <button id="delete-cancel" class="flex-1 py-2.5 rounded-lg border border-mercy-border text-sm uppercase tracking-wider hover:bg-white/5">Batal</button>
+        <button id="delete-confirm" class="flex-1 py-2.5 rounded-lg btn-primary text-sm uppercase tracking-wider text-white">Hapus</button>
       </div>
     </div>
   </div>

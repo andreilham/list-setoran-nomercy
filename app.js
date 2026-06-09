@@ -114,27 +114,28 @@ function setoranSummary(s) {
 function updateAdminUI() {
   const canEdit = isAdmin || !useFirebase;
 
-  // Tampilkan/Sembunyikan dropdown status admin di form utama berdasarkan login
-  $('admin-only-fields')?.classList.toggle('hidden', !isAdmin);
+  // Form input selalu terbuka untuk semua orang, tidak di-toggle hidden lagi
+  $('admin-form-section')?.classList.remove('hidden'); 
+  $('list-section')?.className = 'lg:col-span-3'; // Selalu pas ukurannya
 
-  // Status tombol-tombol otentikasi
+  // Sembunyikan atau tampilkan field status admin di form utama berdasarkan status login admin
+  $('admin-status-field')?.classList.toggle('hidden', !isAdmin);
+
   $('btn-login')?.classList.toggle('hidden', isAdmin);
   $('btn-logout')?.classList.toggle('hidden', !isAdmin);
   $('admin-badge')?.classList.toggle('hidden', !isAdmin);
   $('tab-pengaturan')?.classList.toggle('hidden', !isAdmin);
 
-  // Jika dipaksa di tab pengaturan padahal bukan admin, balikkan ke setoran
   if (!isAdmin && document.querySelector('.tab-btn[data-tab="pengaturan"]')?.classList.contains('active')) {
     document.querySelector('.tab-btn[data-tab="setoran"]')?.click();
   }
 
-  // Mengubah teks banner panduan di atas layar
   const modeText = $('mode-text');
   if (modeText) {
     if (isAdmin) {
-      modeText.innerHTML = '<span class="text-cyan-400">●</span> Mode Admin — Semua fitur input, edit, & konfirmasi status terbuka.';
+      modeText.innerHTML = '<span class="text-cyan-400">●</span> Mode admin — Akses penuh input, edit, hapus & konfirmasi status';
     } else {
-      modeText.innerHTML = '<span class="text-blue-400">●</span> Mode Public — Siapa saja bisa input setoran & catatan. Login admin untuk ubah Status.';
+      modeText.innerHTML = '<span class="text-blue-400">●</span> Mode public — Siapa saja bisa input setoran & catatan. Status dikonfirmasi oleh admin';
     }
   }
 
@@ -321,28 +322,31 @@ function renderList() {
     card.className = 'setoran-card';
     const canEdit = isAdmin || !useFirebase;
     
-    // Fitur: Keterangan Admin hanya bisa diakses oleh Admin
-    const adminStatusHtml = isAdmin ? 
-      `<span class="ml-2 px-2 py-0.5 rounded text-[10px] bg-cyan-900/30 text-cyan-300 border border-cyan-500/30">ADMIN: ${s.status_admin || 'BELUM'}</span>` : '';
+    // Warnai badge status admin secara dinamis
+    let statusClass = 'bg-red-500/20 text-red-400 border border-red-500/30';
+    if (s.statusAdmin === 'DIBALIKIN') statusClass = 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30';
+    if (s.statusAdmin === 'KOMA') statusClass = 'bg-green-500/20 text-green-400 border border-green-500/30';
 
     card.innerHTML = `
-      <div class="flex-1">
+      <div>
         <div class="flex flex-wrap items-center gap-2 mb-1.5">
           <span class="font-display text-lg tracking-wide">${escapeHtml(s.nama)}</span>
           <span class="badge ${keteranganBadge[s.keterangan] || ''}">${escapeHtml(s.keterangan)}</span>
-          ${adminStatusHtml}
+          <span class="text-[11px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${statusClass}">${escapeHtml(s.statusAdmin || 'BELUM')}</span>
         </div>
-        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-mercy-muted">
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-mercy-muted mb-1">
           <span>${formatDate(s.tanggal)}</span>
           <span>${barangIcons[s.barang] || ''} ${escapeHtml(s.barang)}</span>
           <span class="text-cyan-400 font-semibold">${formatNumber(s.jumlah)}</span>
           <span>→ ${escapeHtml(s.disetor)}</span>
         </div>
-        ${s.catatan ? `<p class="text-xs italic text-mercy-muted mt-2 pl-2 border-l border-mercy-border">Note: "${escapeHtml(s.catatan)}"</p>` : ''}
+        <div class="text-xs text-slate-400 bg-black/20 px-2 py-1 rounded border border-mercy-border/30 inline-block">
+          <span class="text-mercy-muted">Catatan:</span> ${escapeHtml(s.catatan || '—')}
+        </div>
       </div>
-      ${canEdit ? `<div class="flex gap-1">
-        <button class="edit-btn" data-id="${s.id}">✎</button>
-        <button class="delete-btn" data-id="${s.id}">✕</button>
+      ${canEdit ? `<div class="flex gap-1 items-start">
+        <button class="edit-btn" data-id="${s.id}" title="Edit">✎</button>
+        <button class="delete-btn" data-id="${s.id}" title="Hapus">✕</button>
       </div>` : ''}`;
     list.appendChild(card);
   });
@@ -472,6 +476,8 @@ function bindEvents() {
 
   on('setoran-form', 'submit', async e => {
     e.preventDefault();
+    if (!$('jumlah')?.value) { showToast('⚠ Pilih jumlah dulu!'); return; }
+    
     const entry = {
       tanggal: $('tanggal').value,
       nama: $('nama').value.trim(),
@@ -479,14 +485,34 @@ function bindEvents() {
       jumlah: Number($('jumlah').value),
       disetor: $('disetor').value,
       keterangan: $('keterangan').value,
-      catatan: $('catatan').value.trim(), // Data Catatan Manual
-      status_admin: isAdmin ? $('status_admin').value : 'BELUM' // Data Khusus Admin
+      catatan: $('catatan')?.value.trim() || '—',
+      // Jika yang input adalah admin, ambil nilainya dari dropdown, jika user biasa otomatis default 'BELUM'
+      statusAdmin: isAdmin ? ($('status_admin').value) : 'BELUM'
     };
+
     try {
-      await addSetoran(entry);
+      if (useFirebase) {
+        const ref = await db.collection('setoran').add({
+          ...entry,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+        await logActivity('CREATE', `Tambah setoran: ${setoranSummary(entry)}`, ref.id);
+        await sendDiscord('📦 Setoran Baru', 0x3b82f6, discordFields(entry));
+      } else {
+        allData.push({ id: String(Date.now()), ...entry });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(allData));
+        await logActivity('CREATE', `Tambah setoran: ${setoranSummary(entry)}`);
+        renderAll();
+      }
+      showToast('✓ Setoran berhasil dikirim!');
       $('setoran-form').reset();
-      showToast('✓ Setoran dicatat!');
-    } catch (err) { showToast('⚠ Gagal simpan'); }
+      if ($('tanggal')) $('tanggal').valueAsDate = new Date();
+      document.querySelectorAll('.jumlah-btn').forEach(b => b.classList.remove('active'));
+    } catch (err) {
+      console.error(err);
+      showToast('⚠ Gagal menyimpan setoran');
+    }
   });
 
   on('setoran-list', 'click', e => {
@@ -506,28 +532,15 @@ function bindEvents() {
       jumlah: Number($('edit-jumlah').value),
       disetor: $('edit-disetor').value,
       keterangan: $('edit-keterangan').value,
-      catatan: $('edit-catatan').value.trim(),
-      status_admin: $('edit-status-admin').value // Admin bisa edit status
+      catatan: $('edit-catatan').value.trim() || '—',
+      statusAdmin: $('edit-status-admin').value
     };
-    await updateSetoran(id, entry);
-    $('edit-modal').classList.add('hidden');
-  });
-
-  on('delete-confirm', 'click', async () => {
-    if (deleteId) await removeSetoran(deleteId);
-    $('delete-modal').classList.add('hidden');
-  });
-
-  on('btn-login', 'click', openLoginModal);
-  on('btn-logout', 'click', () => auth.signOut());
-  on('login-form', 'submit', async e => {
-    e.preventDefault();
     try {
-      await auth.signInWithEmailAndPassword($('login-email').value, $('login-password').value);
-      closeLoginModal();
-    } catch { $('login-error').classList.remove('hidden'); }
+      await updateSetoran(id, entry);
+      $('edit-modal')?.classList.add('hidden');
+      showToast('✓ Setoran berhasil diupdate!');
+    } catch (err) { console.error(err); showToast('⚠ Gagal update'); }
   });
-}
 
 function openEditModal(id) {
   const s = allData.find(x => x.id === id);
@@ -540,8 +553,8 @@ function openEditModal(id) {
   setVal('edit-disetor', s.disetor);
   setVal('edit-keterangan', s.keterangan);
   setVal('edit-catatan', s.catatan || '');
-  setVal('edit-status-admin', s.status_admin || 'BELUM');
-  $('edit-modal').classList.remove('hidden');
+  setVal('edit-status-admin', s.statusAdmin || 'BELUM');
+  $('edit-modal')?.classList.remove('hidden');
 }
 
 function initFirebase() {
