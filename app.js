@@ -78,7 +78,29 @@ function showToast(msg) {
   setTimeout(() => $('toast').classList.add('hidden'), 2800);
 }
 
-function hideLoading() { $('loading').classList.add('hidden'); }
+function hideLoading() { $('loading')?.classList.add('hidden'); }
+
+let loadingTimeout = null;
+
+function clearLoadingTimeout() {
+  if (loadingTimeout) {
+    clearTimeout(loadingTimeout);
+    loadingTimeout = null;
+  }
+}
+
+function startLoadingTimeout() {
+  clearLoadingTimeout();
+  loadingTimeout = setTimeout(() => {
+    if (!$('loading')?.classList.contains('hidden')) {
+      hideLoading();
+      subscribeData();
+      updateAdminUI();
+      if (!isAdmin) switchTab(PUBLIC_TAB);
+      showToast('⚠ Koneksi lambat — data mungkin belum lengkap, coba refresh');
+    }
+  }, 8000);
+}
 
 function setListLoading(on) {
   const list = $('setoran-list');
@@ -219,8 +241,17 @@ function subscribeData() {
   };
   db.collection('catatan_wd').orderBy('tanggal', 'desc').get()
     .then(applyWd)
-    .catch(err => console.error(err));
-  unsubWd = db.collection('catatan_wd').orderBy('tanggal', 'desc').onSnapshot(applyWd);
+    .catch(err => {
+      console.error(err);
+      renderWdList();
+    });
+  unsubWd = db.collection('catatan_wd').orderBy('tanggal', 'desc').onSnapshot(
+    applyWd,
+    err => {
+      console.error(err);
+      renderWdList();
+    }
+  );
 
   if (isAdmin) {
     setListLoading(true);
@@ -265,6 +296,7 @@ function subscribeData() {
 }
 
 function onAuthChange(user) {
+  clearLoadingTimeout();
   hideLoading();
   isAdmin = !!user;
   currentUser = user;
@@ -937,11 +969,34 @@ function initLocalDev() {
 
 function initFirebase() {
   if (!isFirebaseConfigured()) { initLocalDev(); return; }
-  firebase.initializeApp(firebaseConfig);
-  auth = firebase.auth();
-  db = firebase.firestore();
-  useFirebase = true;
-  auth.onAuthStateChanged(onAuthChange);
+
+  if (typeof firebase === 'undefined') {
+    console.error('Firebase SDK tidak termuat');
+    hideLoading();
+    showToast('⚠ Gagal memuat Firebase — cek koneksi internet lalu refresh');
+    return;
+  }
+
+  try {
+    firebase.initializeApp(firebaseConfig);
+    auth = firebase.auth();
+    db = firebase.firestore();
+    useFirebase = true;
+    startLoadingTimeout();
+    auth.onAuthStateChanged(onAuthChange, err => {
+      console.error(err);
+      clearLoadingTimeout();
+      hideLoading();
+      subscribeData();
+      updateAdminUI();
+      showToast('⚠ Gagal cek status login — coba refresh');
+    });
+  } catch (err) {
+    console.error(err);
+    clearLoadingTimeout();
+    hideLoading();
+    showToast('⚠ Gagal inisialisasi Firebase');
+  }
 }
 
 bindEvents();
