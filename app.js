@@ -114,27 +114,27 @@ function setoranSummary(s) {
 function updateAdminUI() {
   const canEdit = isAdmin || !useFirebase;
 
-  $('admin-form-section')?.classList.toggle('hidden', !canEdit);
-  $('viewer-info')?.classList.toggle('hidden', canEdit);
-  $('list-section')?.classList.toggle('lg:col-span-3', canEdit);
-  $('list-section')?.classList.toggle('lg:col-span-5', !canEdit);
+  // Tampilkan/Sembunyikan dropdown status admin di form utama berdasarkan login
+  $('admin-only-fields')?.classList.toggle('hidden', !isAdmin);
 
+  // Status tombol-tombol otentikasi
   $('btn-login')?.classList.toggle('hidden', isAdmin);
   $('btn-logout')?.classList.toggle('hidden', !isAdmin);
   $('admin-badge')?.classList.toggle('hidden', !isAdmin);
-  $('btn-login-viewer')?.classList.toggle('hidden', isAdmin);
   $('tab-pengaturan')?.classList.toggle('hidden', !isAdmin);
 
+  // Jika dipaksa di tab pengaturan padahal bukan admin, balikkan ke setoran
   if (!isAdmin && document.querySelector('.tab-btn[data-tab="pengaturan"]')?.classList.contains('active')) {
     document.querySelector('.tab-btn[data-tab="setoran"]')?.click();
   }
 
+  // Mengubah teks banner panduan di atas layar
   const modeText = $('mode-text');
   if (modeText) {
     if (isAdmin) {
-      modeText.innerHTML = '<span class="text-cyan-400">●</span> Mode admin — kamu bisa input, edit & hapus setoran';
+      modeText.innerHTML = '<span class="text-cyan-400">●</span> Mode Admin — Semua fitur input, edit, & konfirmasi status terbuka.';
     } else {
-      modeText.innerHTML = '<span class="text-blue-400">●</span> Mode lihat — login admin untuk input & edit';
+      modeText.innerHTML = '<span class="text-blue-400">●</span> Mode Public — Siapa saja bisa input setoran & catatan. Login admin untuk ubah Status.';
     }
   }
 
