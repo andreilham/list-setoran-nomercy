@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=4" />
+  <link rel="stylesheet" href="style.css?v=6" />
   <script>
     tailwind.config = {
       theme: {
@@ -64,11 +64,12 @@
           </div>
         </div>
         <nav class="nav-tabs flex flex-wrap gap-1 bg-black/40 rounded-xl p-1 border border-mercy-border/50">
-          <button class="tab-btn active" data-tab="setoran">Setoran</button>
-          <button class="tab-btn" data-tab="laporan">Laporan</button>
-          <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
-          <button class="tab-btn" data-tab="log">Log</button>
-          <button id="tab-pengaturan" class="tab-btn hidden" data-tab="pengaturan">Pengaturan</button>
+          <button class="tab-btn active" data-tab="catatan-wd">Catatan WD</button>
+          <button class="tab-btn" data-tab="setoran" data-admin-only="true">Setoran</button>
+          <button class="tab-btn" data-tab="laporan" data-admin-only="true">Laporan</button>
+          <button class="tab-btn" data-tab="leaderboard" data-admin-only="true">Leaderboard</button>
+          <button class="tab-btn" data-tab="log" data-admin-only="true">Log</button>
+          <button id="tab-pengaturan" class="tab-btn hidden" data-tab="pengaturan" data-admin-only="true">Pengaturan</button>
         </nav>
       </div>
     </header>
@@ -76,7 +77,7 @@
     <div id="mode-banner" class="relative z-10 border-b border-mercy-border/30 bg-mercy-card/40">
       <div class="max-w-6xl mx-auto px-4 py-2 text-sm">
         <p id="mode-text" class="text-mercy-muted">
-          <span class="text-blue-400">●</span> Mode lihat — login admin untuk input & edit
+          <span class="text-blue-400">●</span> Mode public — Isi catatan WD. Setoran & konfirmasi status wajib login admin
         </p>
       </div>
     </div>
@@ -89,15 +90,15 @@
 
     <main class="relative z-10 max-w-6xl mx-auto px-4 py-6 space-y-6">
 
-      <section class="grid grid-cols-2 md:grid-cols-4 gap-3" id="stats">
+      <section class="grid grid-cols-2 md:grid-cols-4 gap-3 hidden" id="stats">
         <div class="stat-card"><p class="text-mercy-muted text-xs uppercase tracking-wider">Total Setoran</p><p class="font-display text-2xl md:text-3xl text-white mt-1" id="stat-total">0</p></div>
         <div class="stat-card"><p class="text-mercy-muted text-xs uppercase tracking-wider">Minggu Ini</p><p class="font-display text-2xl md:text-3xl text-cyan-400 mt-1" id="stat-week">0</p></div>
         <div class="stat-card"><p class="text-mercy-muted text-xs uppercase tracking-wider">Total Jumlah</p><p class="font-display text-2xl md:text-3xl text-white mt-1" id="stat-amount">0</p></div>
         <div class="stat-card"><p class="text-mercy-muted text-xs uppercase tracking-wider">Anggota</p><p class="font-display text-2xl md:text-3xl text-white mt-1" id="stat-members">0</p></div>
       </section>
 
-      <!-- TAB: Setoran -->
-      <div id="panel-setoran" class="panel grid lg:grid-cols-5 gap-6">
+      <!-- TAB: Setoran (admin only) -->
+      <div id="panel-setoran" class="panel hidden grid lg:grid-cols-5 gap-6">
         <!-- Form admin -->
         <section id="admin-form-section" class="lg:col-span-2"> <div class="form-panel rounded-2xl p-6 md:p-7">
           <div class="flex items-center gap-3 mb-5">
@@ -193,6 +194,78 @@
             <div class="flex items-center justify-between mt-5 pt-4 border-t border-mercy-border/50">
               <p class="text-xs text-mercy-muted" id="list-count">0 setoran</p>
               <button id="export-btn" class="text-xs text-cyan-400 hover:text-cyan-300 uppercase tracking-wider">Export CSV</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- TAB: Catatan WD (public) -->
+      <div id="panel-catatan-wd" class="panel grid lg:grid-cols-5 gap-6">
+        <section class="lg:col-span-2">
+          <div class="form-panel rounded-2xl p-6 md:p-7">
+            <div class="flex items-center gap-3 mb-5">
+              <div class="w-1 h-8 accent-bar rounded-full"></div>
+              <h2 class="font-display text-2xl tracking-wider">INPUT CATATAN WD</h2>
+            </div>
+            <form id="wd-form" class="space-y-4">
+              <div><label for="wd-tanggal" class="form-label">Tanggal</label><input type="date" id="wd-tanggal" name="tanggal" required class="form-input" /></div>
+              <div><label for="wd-nama" class="form-label">Nama</label><input type="text" id="wd-nama" name="nama" placeholder="Nama anggota..." required class="form-input" /></div>
+              <div><label for="wd-barang" class="form-label">Nama Barang</label>
+                <select id="wd-barang" name="barang" required class="form-input form-select">
+                  <option value="" disabled selected>Pilih barang...</option>
+                  <option value="Besi">⚙️ Besi</option><option value="Emas">🥇 Emas</option>
+                  <option value="Tembaga">🔶 Tembaga</option><option value="Potongan Kayu">🪵 Potongan Kayu</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Jumlah</label>
+                <div class="grid grid-cols-3 sm:grid-cols-5 gap-2" id="wd-jumlah-group">
+                  <button type="button" data-value="500" class="jumlah-btn wd-jumlah-btn">500</button>
+                  <button type="button" data-value="1000" class="jumlah-btn wd-jumlah-btn">1K</button>
+                  <button type="button" data-value="1500" class="jumlah-btn wd-jumlah-btn">1.5K</button>
+                  <button type="button" data-value="2000" class="jumlah-btn wd-jumlah-btn">2K</button>
+                  <button type="button" data-value="2500" class="jumlah-btn wd-jumlah-btn">2.5K</button>
+                </div>
+                <input type="hidden" id="wd-jumlah" name="jumlah" required />
+              </div>
+              <div>
+                <label for="wd-catatan" class="form-label">Catatan</label>
+                <input type="text" id="wd-catatan" name="catatan" placeholder="Keterangan WD..." class="form-input" />
+              </div>
+              <div id="wd-admin-status-field" class="hidden p-3 bg-cyan-950/40 border border-cyan-800/40 rounded-xl">
+                <label for="wd-status" class="form-label text-cyan-400 font-bold">Status Konfirmasi (Khusus Admin)</label>
+                <select id="wd-status" name="statusKonfirmasi" class="form-input form-select bg-mercy-dark">
+                  <option value="BELUM DI KEMBALIKAN">🔴 Belum DI Kembalikan</option>
+                  <option value="DI KEMBALIKAN">🟡 DI Kembalikan</option>
+                  <option value="KOMA">🟢 Koma</option>
+                </select>
+              </div>
+              <button type="submit" class="submit-btn w-full py-3 rounded-xl font-display text-xl tracking-widest uppercase">Catat WD</button>
+            </form>
+          </div>
+        </section>
+        <section class="lg:col-span-3">
+          <div class="list-panel rounded-2xl p-6 md:p-7">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+              <div class="flex items-center gap-3"><div class="w-1 h-8 accent-bar rounded-full"></div><h2 class="font-display text-2xl tracking-wider">RIWAYAT WD</h2></div>
+              <div class="flex flex-wrap gap-2">
+                <input type="text" id="wd-search" placeholder="Cari nama..." class="search-input" />
+                <select id="wd-filter-status" class="filter-select">
+                  <option value="">Semua Status</option>
+                  <option value="BELUM DI KEMBALIKAN">Belum DI Kembalikan</option>
+                  <option value="DI KEMBALIKAN">DI Kembalikan</option>
+                  <option value="KOMA">Koma</option>
+                </select>
+              </div>
+            </div>
+            <div id="wd-empty-state" class="empty-state hidden">
+              <div class="text-5xl mb-3 opacity-30">📤</div>
+              <p class="font-display text-lg text-mercy-muted">Belum ada catatan WD</p>
+            </div>
+            <div id="wd-list" class="space-y-3 max-h-[560px] overflow-y-auto custom-scroll pr-1"></div>
+            <div class="flex items-center justify-between mt-5 pt-4 border-t border-mercy-border/50">
+              <p class="text-xs text-mercy-muted" id="wd-list-count">0 catatan</p>
+              <button id="wd-export-btn" class="text-xs text-cyan-400 hover:text-cyan-300 uppercase tracking-wider">Export CSV</button>
             </div>
           </div>
         </section>
@@ -381,6 +454,57 @@
     </div>
   </div>
 
+  <!-- Edit WD modal -->
+  <div id="edit-wd-modal" class="modal hidden">
+    <div class="modal-backdrop" data-close="edit-wd-modal"></div>
+    <div class="modal-content modal-content-lg">
+      <h3 class="font-display text-2xl tracking-wider mb-4">Edit Catatan WD</h3>
+      <form id="edit-wd-form" class="space-y-4">
+        <input type="hidden" id="edit-wd-id" />
+        <div><label class="form-label">Tanggal</label><input type="date" id="edit-wd-tanggal" required class="form-input" /></div>
+        <div><label class="form-label">Nama</label><input type="text" id="edit-wd-nama" required class="form-input" /></div>
+        <div><label class="form-label">Barang</label>
+          <select id="edit-wd-barang" required class="form-input form-select">
+            <option value="Besi">⚙️ Besi</option><option value="Emas">🥇 Emas</option>
+            <option value="Tembaga">🔶 Tembaga</option><option value="Potongan Kayu">🪵 Potongan Kayu</option>
+          </select>
+        </div>
+        <div><label class="form-label">Jumlah</label>
+          <select id="edit-wd-jumlah" required class="form-input form-select">
+            <option value="500">500</option><option value="1000">1.000</option><option value="1500">1.500</option>
+            <option value="2000">2.000</option><option value="2500">2.500</option>
+          </select>
+        </div>
+        <div><label class="form-label">Catatan</label><input type="text" id="edit-wd-catatan" class="form-input" /></div>
+        <div id="edit-wd-status-field">
+          <label class="form-label text-cyan-400 font-bold">Status Konfirmasi (Khusus Admin)</label>
+          <select id="edit-wd-status" class="form-input form-select bg-mercy-dark">
+            <option value="BELUM DI KEMBALIKAN">🔴 Belum DI Kembalikan</option>
+            <option value="DI KEMBALIKAN">🟡 DI Kembalikan</option>
+            <option value="KOMA">🟢 Koma</option>
+          </select>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="button" id="edit-wd-cancel" class="flex-1 py-2.5 rounded-lg border border-mercy-border text-sm uppercase tracking-wider hover:bg-white/5">Batal</button>
+          <button type="submit" class="flex-1 py-2.5 rounded-lg btn-primary text-sm uppercase tracking-wider text-white">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete WD modal -->
+  <div id="delete-wd-modal" class="modal hidden">
+    <div class="modal-backdrop" data-close="delete-wd-modal"></div>
+    <div class="modal-content">
+      <h3 class="font-display text-2xl tracking-wider mb-2">Hapus Catatan WD?</h3>
+      <p class="text-mercy-muted text-sm mb-6">Data yang dihapus tidak bisa dikembalikan.</p>
+      <div class="flex gap-3">
+        <button id="delete-wd-cancel" class="flex-1 py-2.5 rounded-lg border border-mercy-border text-sm uppercase tracking-wider hover:bg-white/5">Batal</button>
+        <button id="delete-wd-confirm" class="flex-1 py-2.5 rounded-lg btn-primary text-sm uppercase tracking-wider text-white">Hapus</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Delete modal -->
   <div id="delete-modal" class="modal hidden">
     <div class="modal-backdrop" data-close="delete-modal"></div>
@@ -398,6 +522,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>
